@@ -1,4 +1,4 @@
-const { el, svg, router, mount, list, text, setChildren } = redom
+const { el, svg, mount, setChildren } = redom
 
 var data = [
     {x: 0, y: 10}, 
