@@ -8,11 +8,6 @@ var data = [
     {x: 40, y: 0}
   ]
 
-var lineFunction = d3.svg.line()
-  .x(function(d) { return d.x; })
-  .y(function(d) { return d.y; })
-  .interpolate("linear");
-
 class LineChart {
     constructor() {
         var margin = {top: 10, right: 20, bottom: 20, left: 30},
@@ -43,13 +38,13 @@ class LineChart {
             
     }
     update() {
-        var x = d3.scale.linear().domain([0, d3.max(data, d => d.x)]).range([this.margin().left, this.width() - this.margin().right])
-        var y = d3.scale.linear().domain([0, d3.max(data, d => d.y)]).range([this.height() - this.margin().bottom, this.margin().top])
-        var x_axis = d3.svg.axis().orient("bottom").scale(x)
-        var y_axis = d3.svg.axis().orient("left").scale(y)
+        var x = d3.scaleLinear().domain([0, d3.max(data, d => d.x)]).range([this.margin().left, this.width() - this.margin().right])
+        var y = d3.scaleLinear().domain([0, d3.max(data, d => d.y)]).range([this.height() - this.margin().bottom, this.margin().top])
+        var x_axis = d3.axisBottom().scale(x)
+        var y_axis = d3.axisLeft().scale(y)
         this.el.setAttribute("width", this.width())
         this.el.setAttribute("height", this.height())
-        this.line = svg("path", {style:"fill:none;stroke:#33c7ff;stroke-width:2;",d:d3.svg.line().x(d => x(d.x)).y(d => y(d.y))(data)})
+        this.line = svg("path", {style:"fill:none;stroke:#33c7ff;stroke-width:2;",d:d3.line().x(d => x(d.x)).y(d => y(d.y))(data)})
         this.x_axis = svg("g" , {transform:"translate(0,"+ this.xaxis_offset()+")"})
         this.y_axis = svg("g", {transform:"translate("+ this.yaxis_offset()+",0)"})
         setChildren(this.el, [this.line, this.x_axis, this.y_axis])
