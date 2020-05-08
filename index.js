@@ -1,4 +1,4 @@
-const { el, svg, mount, setChildren } = redom
+const { el, svg, mount, list, setChildren } = redom
 
 var data = [
     {x: 0, y: 10}, 
@@ -51,16 +51,50 @@ class LineChart {
         }
         var x = d3.scaleLinear().domain([0, d3.max(data, d => d.x)]).range([this.margin().left, this.width() - this.margin().right])
         var y = d3.scaleLinear().domain([0, d3.max(data, d => d.y)]).range([this.height() - this.margin().bottom, this.margin().top])
-        var x_axis = d3.axisBottom().scale(x)
-        var y_axis = d3.axisLeft().scale(y)
         this.el.setAttribute("width", this.width())
         this.el.setAttribute("height", this.height())
         this.line = svg("path", {style:"fill:none;stroke:#33c7ff;stroke-width:2;",d:d3.line().x(d => x(d.x)).y(d => y(d.y))(data)})
-        this.x_axis = svg("g" , {transform:"translate(0,"+ this.xaxis_offset()+")"})
-        this.y_axis = svg("g", {transform:"translate("+ this.yaxis_offset()+",0)"})
+        this.x_ticks = list(svg("g"), xTicks)
+        this.y_ticks = list(svg("g"), yTicks)
+        this.x_axis = svg("g" , {transform:"translate(0,"+ this.xaxis_offset()+")",style:"text-anchor:middle"}, 
+        svg("path", {style:"fill:none;stroke:currentcolor;stroke-width:1;",d:"M" + (this.margin().left + 0.5) + ",0.5H" + (this.width() - this.margin().right-0.5) }),
+        this.x_ticks)
+        this.y_axis = svg("g", {transform:"translate("+ this.yaxis_offset()+",0)",style:"text-anchor:end"}, 
+        svg("path", {style:"fill:none;stroke:currentcolor;stroke-width:1;",d:"M0.5," + (this.height() - this.margin().bottom+ 0.5) + "V" + (this.margin().top - 0.5) }),
+        this.y_ticks)
         setChildren(this.el, [this.line, this.x_axis, this.y_axis])
-        d3.select(this.x_axis).call(x_axis)
-        d3.select(this.y_axis).call(y_axis)
+        let xTickData = x.ticks().map(function(d){return [x(d),d]})
+        let yTickData = y.ticks().map(function(d){return [y(d) ,d]})
+        this.x_ticks.update(xTickData)
+        this.y_ticks.update(yTickData)
+    }
+}
+
+class xTicks {
+    constructor() {
+        this.line
+        this.text
+        this.el = svg("g", {style:"opacity:1;"}) 
+    }
+    update(data) {
+        this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
+        this.line = svg("line", {style:"stroke:currentcolor;",y2:"6"}) 
+        this.text = svg("text", {style:"fill:currentcolor;",y:9, dy:"0.71em"}, data[1])
+        setChildren(this.el, [this.line, this.text])
+    }
+}
+
+class yTicks {
+    constructor() {
+        this.line
+        this.text
+        this.el = svg("g", {style:"opacity:1;"}) 
+    }
+    update(data) {
+        this.el.setAttribute("transform", "translate(0," + data[0] + ")")
+        this.line = svg("line", {style:"stroke:currentcolor;",x2:"-6"}) 
+        this.text = svg("text", {style:"fill:currentcolor;",x:-9, dy:"0.32em"}, data[1])
+        setChildren(this.el, [this.line, this.text])
     }
 }
 
@@ -73,6 +107,7 @@ let total = el("div.w-100", graph, el("div.pa2", el("br"), el("h3", "docs"), el(
     el("p", "Set auto_resize > 0 to enable and auto_resize = 0 to disable.(default = enabled)")))
 
 mount(document.body, total);
+
 graph.update()
 
 
