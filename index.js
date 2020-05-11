@@ -88,14 +88,12 @@ class LineChart {
         this.x_ticks.update(x.ticks().map(function(d){return [x(d),d]}))
         this.x_ticks2.update(x2.ticks().map(function(d){return [x2(d),d]}))
         this.y_ticks.update(y.ticks().map(function(d){return [y(d) ,d]}))
-        console.log(x.invert(119))
-        setChildren(this.el, [this.line, this.x_axis, this.y_axis, this.brushRectangle, this.x_axis2])
+        setChildren(this.el, [svg("g", {style:"clip-path:inset(0px 0px 0px 0px)"}, this.line), this.x_axis, this.y_axis, this.brushRectangle, this.x_axis2])
     }
     zoom(data0, data1) {
         var x = d3.scaleLinear().domain([0, d3.max(data, d => d.x)]).range([this.margin().left, this.width() - this.margin().right])
         data0 = x.invert(data0 + 30)
         data1 = x.invert(data1 + 30)
-        console.log(data0, data1)
         var x = d3.scaleLinear().domain([data0, data1]).range([this.margin().left, this.width() - this.margin().right])
         var y = d3.scaleLinear().domain([0, d3.max(data, d => d.y)]).range([this.height() - this.margin().bottom, this.margin().top])
         this.line.update(d3.line().x(d => x(d.x)).y(d => y(d.y))(data))
@@ -117,12 +115,10 @@ class BrushRectangle {
         }.bind(this),
         onmousemove: function(e){
             if(this.mousedown) {
-                console.log(parseInt(this.leftHandle.getAttribute("x")),e.clientX - this.startX)
                 if( (parseInt(this.leftHandle.getAttribute("x"))) + 30 + e.clientX - this.startX >= dx-20) {
                     this.leftHandle.setAttribute("x", parseInt(this.leftHandle.getAttribute("x")) + e.clientX - this.startX )
                     this.sizing.setAttribute("x", parseInt(this.leftHandle.getAttribute("x")) + e.clientX - this.startX + 20)
                     this.sizing.setAttribute("width", (parseInt(this.sizing.getBoundingClientRect().width, 10)) - e.clientX + this.startX)
-                    console.log((parseInt(this.sizing.getBoundingClientRect().width, 10)))
                     this.startX = e.clientX
                     graph.zoom(parseInt(this.sizing.getAttribute("x")), parseInt(this.sizing.getBoundingClientRect().width, 10))
                 }
@@ -142,7 +138,6 @@ class BrushRectangle {
                         this.rightHandle.setAttribute("x", (parseInt(this.sizing.getBoundingClientRect().width, 10)) + parseInt(this.leftHandle.getAttribute("x")) + 20  + e.clientX - this.startX )
                         this.sizing.setAttribute("width", (parseInt(this.sizing.getBoundingClientRect().width, 10)) + + e.clientX - this.startX)
                         this.startX = e.clientX
-                        console.log(this.sizing.getAttribute("x"))
                         graph.zoom(parseInt(this.sizing.getAttribute("x")), parseInt(this.sizing.getAttribute("x")) + parseInt(this.sizing.getBoundingClientRect().width, 10))
                     }
                 }
@@ -157,7 +152,6 @@ class BrushRectangle {
         }.bind(this),
         onmousemove: function(e){
             if(this.mousedown) {
-                console.log(this.maxWidth >= ((parseInt(this.sizing.getAttribute("x"))) + (parseInt(this.sizing.getBoundingClientRect().width, 10))) , this.sizing.getAttribute("x") >= 0 )
                 if( this.maxWidth >= ((parseInt(this.sizing.getAttribute("x"))) + (parseInt(this.sizing.getBoundingClientRect().width, 10))) && this.sizing.getAttribute("x") >= 0 ) {
                     this.rightHandle.setAttribute("x", parseInt(this.rightHandle.getAttribute("x")) + e.clientX - this.startX )
                     this.sizing.setAttribute("x", (parseInt(this.sizing.getAttribute("x"))) + e.clientX - this.startX)
@@ -173,7 +167,6 @@ class BrushRectangle {
                         graph.zoom(parseInt(this.sizing.getAttribute("x")), parseInt(this.sizing.getAttribute("x")) + parseInt(this.sizing.getBoundingClientRect().width, 10))
                     }
                     if(this.maxWidth <= ((parseInt(this.sizing.getAttribute("x"))) + (parseInt(this.sizing.getBoundingClientRect().width, 10)))) {
-                        console.log(parseInt(this.sizing.getAttribute("x")), parseInt(this.sizing.getAttribute("x")), this.maxWidth, (parseInt(this.sizing.getBoundingClientRect().width, 10)) )
                         this.sizing.setAttribute("x", parseInt(this.sizing.getAttribute("x")) - parseInt(this.sizing.getAttribute("x")) +this.maxWidth - (parseInt(this.sizing.getBoundingClientRect().width, 10)) )
                         this.leftHandle.setAttribute("x", parseInt(this.sizing.getAttribute("x")) - 20 )
                         this.rightHandle.setAttribute("x", parseInt(this.sizing.getAttribute("x")) + (parseInt(this.sizing.getBoundingClientRect().width, 10)) )
