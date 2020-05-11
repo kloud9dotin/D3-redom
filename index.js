@@ -105,83 +105,127 @@ class LineChart {
 
 class BrushRectangle {
     constructor(dy, width, height, dx, graph) {
+        this.dy = dy
         this.maxWidth = width
-        this.mousedown = false
-        this.startx 
-        this.leftHandle = svg("rect", {style:"width:20;height:46;fill:red;",transform:"translate(30,0)",y:dy-3,x:-20,
-        onmousedown: function(e) {
-            this.mousedown = true
-            this.startX = e.clientX
-        }.bind(this),
-        onmousemove: function(e){
-            if(this.mousedown) {
-                if( (parseInt(this.leftHandle.getAttribute("x"))) + 30 + e.clientX - this.startX >= dx-20) {
-                    this.leftHandle.setAttribute("x", parseInt(this.leftHandle.getAttribute("x")) + e.clientX - this.startX )
-                    this.sizing.setAttribute("x", parseInt(this.leftHandle.getAttribute("x")) + e.clientX - this.startX + 20)
-                    this.sizing.setAttribute("width", (parseInt(this.sizing.getBoundingClientRect().width, 10)) - e.clientX + this.startX)
-                    this.startX = e.clientX
-                    graph.zoom(parseInt(this.sizing.getAttribute("x")), parseInt(this.sizing.getBoundingClientRect().width, 10))
-                }
+        this.startX = 0
+        this.drag = false
+        this.selectionWidth, this.selectionX
+        this.backgroundDrag = function(e) {
+            this.drag = true
+        }.bind(this)
+
+        this.HandleLeftDrag = function(e) {
+            e.preventDefault()
+            if (this.selectionX + e.clientX - this.startX >= 0 ) {
+                this.selectionX = this.selectionX + e.clientX - this.startX
+                this.selectionWidth = this.selectionWidth - e.clientX + this.startX
             }
-        }.bind(this),
-        onmouseup: function(e){
-            this.mousedown = false
-        }.bind(this)})
-        this.rightHandle = svg("rect", {style:"width:20;height:46;fill:red;",transform:"translate(30,0)",y:dy-3,x:width,
-            onmousedown: function(e) {
-                this.mousedown = true
+            else {
+                this.selectionX = 0
+            }
+            this.selection.setAttribute("width", this.selectionWidth)
+            this.selectionHandleLeft.setAttribute("x", this.selectionX - 5)
+            this.selection.setAttribute("x", this.selectionX)
+            this.selectionHandleRight.setAttribute("x", this.selectionX + this.selectionWidth - 5)
+            this.startX = e.clientX
+            graph.zoom(this.selectionX, this.selectionX + this.selectionWidth)
+        }.bind(this)
+
+        this.HandleRightDrag = function(e) {
+            e.preventDefault()
+            if (this.selectionWidth + e.clientX - this.startX + this.selectionX  <= this.maxWidth) {
+                this.selectionWidth = this.selectionWidth + e.clientX - this.startX
+            }
+            else {
+                this.selectionWidth = this.maxWidth - this.selectionX
+            }
+            this.selection.setAttribute("width", this.selectionWidth)
+            this.selectionHandleRight.setAttribute("x", this.selectionX + this.selectionWidth - 5)
+            this.startX = e.clientX
+            graph.zoom(this.selectionX, this.selectionX + this.selectionWidth)
+        }.bind(this)
+
+        this.selectionDrag = function(e) {
+            e.preventDefault()
+            console.log("here")
+            if (this.selectionX + e.clientX - this.startX >= 0 && this.selectionWidth + e.clientX - this.startX + this.selectionX  <= this.maxWidth) {
+                this.selectionX = this.selectionX + e.clientX - this.startX
+            }
+            this.selectionHandleLeft.setAttribute("x", this.selectionX - 5)
+            this.selection.setAttribute("x", this.selectionX)
+            this.selectionHandleRight.setAttribute("x", this.selectionX + this.selectionWidth - 5)
+            this.startX = e.clientX
+            graph.zoom(this.selectionX, this.selectionX + this.selectionWidth)
+        }.bind(this)
+
+        this.background = svg("rect", {width:this.maxWidth, height:40, y:dy, style:"fill:#e8e8e8",
+            onmousedown:function(e){
                 this.startX = e.clientX
+                this.background.addEventListener("mousemove", this.backgroundDrag)
             }.bind(this),
-            onmousemove: function(e){
-                if(this.mousedown) {
-                    if( (parseInt(this.sizing.getBoundingClientRect().width, 10)) + parseInt(this.leftHandle.getAttribute("x")) + 20 + e.clientX - this.startX <= this.maxWidth) {
-                        this.rightHandle.setAttribute("x", (parseInt(this.sizing.getBoundingClientRect().width, 10)) + parseInt(this.leftHandle.getAttribute("x")) + 20  + e.clientX - this.startX )
-                        this.sizing.setAttribute("width", (parseInt(this.sizing.getBoundingClientRect().width, 10)) + + e.clientX - this.startX)
-                        this.startX = e.clientX
-                        graph.zoom(parseInt(this.sizing.getAttribute("x")), parseInt(this.sizing.getAttribute("x")) + parseInt(this.sizing.getBoundingClientRect().width, 10))
-                    }
-                }
-            }.bind(this),
-            onmouseup: function(e){
-                this.mousedown = false
+            onmouseup:function(e) {
+                this.background.removeEventListener("mousemove", this.backgroundDrag)
+                if(this.drag) {
+                    console.log(this.startX, e.clientX)
+                    this.selectionWidth = Math.abs(this.startX - e.clientX)
+                    this.selectionX = Math.min(this.startX, e.clientX) - 30
+                    console.log(this.selectionWidth, this.selectionX)
+                    this.update()
+                    return
+                } 
             }.bind(this)})
-        this.sizing = svg("rect", {width: width, height: height,transform:"translate(30,0)",x:0,y:dy,
-        onmousedown: function(e) {
-            this.mousedown = true
-            this.startX = e.clientX
-        }.bind(this),
-        onmousemove: function(e){
-            if(this.mousedown) {
-                if( this.maxWidth >= ((parseInt(this.sizing.getAttribute("x"))) + (parseInt(this.sizing.getBoundingClientRect().width, 10))) && this.sizing.getAttribute("x") >= 0 ) {
-                    this.rightHandle.setAttribute("x", parseInt(this.rightHandle.getAttribute("x")) + e.clientX - this.startX )
-                    this.sizing.setAttribute("x", (parseInt(this.sizing.getAttribute("x"))) + e.clientX - this.startX)
-                    this.leftHandle.setAttribute("x", (parseInt(this.leftHandle.getAttribute("x"))) + e.clientX - this.startX)
-                    this.startX = e.clientX
-                    graph.zoom(parseInt(this.sizing.getAttribute("x")), parseInt(this.sizing.getAttribute("x")) + parseInt(this.sizing.getBoundingClientRect().width, 10))
-                }
-                else {
-                    if(this.sizing.getAttribute("x") <= 0 ){
-                        this.sizing.setAttribute("x", "0")
-                        this.leftHandle.setAttribute("x", "-20")
-                        this.rightHandle.setAttribute("x", (parseInt(this.sizing.getBoundingClientRect().width, 10)))
-                        graph.zoom(parseInt(this.sizing.getAttribute("x")), parseInt(this.sizing.getAttribute("x")) + parseInt(this.sizing.getBoundingClientRect().width, 10))
-                    }
-                    if(this.maxWidth <= ((parseInt(this.sizing.getAttribute("x"))) + (parseInt(this.sizing.getBoundingClientRect().width, 10)))) {
-                        this.sizing.setAttribute("x", parseInt(this.sizing.getAttribute("x")) - parseInt(this.sizing.getAttribute("x")) +this.maxWidth - (parseInt(this.sizing.getBoundingClientRect().width, 10)) )
-                        this.leftHandle.setAttribute("x", parseInt(this.sizing.getAttribute("x")) - 20 )
-                        this.rightHandle.setAttribute("x", parseInt(this.sizing.getAttribute("x")) + (parseInt(this.sizing.getBoundingClientRect().width, 10)) )
-                        graph.zoom(parseInt(this.sizing.getAttribute("x")), parseInt(this.sizing.getAttribute("x")) + parseInt(this.sizing.getBoundingClientRect().width, 10))
-                    }
-                }
-            }
-        }.bind(this),
-        onmouseup: function(e){
-            this.mousedown = false
-        }.bind(this)})
-        this.el = svg("g", this.sizing, this.leftHandle, this.rightHandle)
+        this.el = svg("g",{transform:"translate(30,0)"}, this.background)
+
     }
     update() {
-
+        this.selection = svg("rect", {style:"fill:#c8c8c8",x:this.selectionX,y:this.dy,width:this.selectionWidth, height:40,
+            onmousedown:function(e){
+                e.preventDefault()
+                this.selection.addEventListener("mousemove", this.selectionDrag)
+                this.startX = e.clientX
+            }.bind(this),
+            onmouseleave:function(e){
+                e.preventDefault()
+                this.selection.removeEventListener("mousemove", this.selectionDrag)
+            }.bind(this),
+            onmouseup:function(e){
+                e.preventDefault()
+                this.selection.removeEventListener("mousemove", this.selectionDrag)
+                this.startX = e.clientX
+            }.bind(this)})
+        this.selectionHandleLeft = svg("rect", {x:this.selectionX - 5, y:this.dy - 3,width:10,dx:-5,height:46,style:"opacity:0;cursor: e-resize;",
+            onmousedown:function(e){
+                e.preventDefault()
+                this.selectionHandleLeft.addEventListener("mousemove", this.HandleLeftDrag)
+                this.startX = e.clientX
+            }.bind(this),
+            onmouseleave:function(e){
+                e.preventDefault()
+                this.selectionHandleLeft.removeEventListener("mousemove", this.HandleLeftDrag)
+            }.bind(this),
+            onmouseup:function(e){
+                e.preventDefault()
+                this.selectionHandleLeft.removeEventListener("mousemove", this.HandleLeftDrag)
+                this.startX = e.clientX
+            }.bind(this)})
+        this.selectionHandleRight = svg("rect", {x:this.selectionX + this.selectionWidth - 5, y:this.dy - 3,width:10,dx:-5,height:46,style:"opacity:0;cursor: e-resize;",
+        onmousedown:function(e){
+            e.preventDefault()
+            this.selectionHandleRight.addEventListener("mousemove", this.HandleRightDrag)
+            this.startX = e.clientX
+        }.bind(this),
+        onmouseleave:function(e){
+            e.preventDefault()
+            console.log("leaving")
+            this.selectionHandleRight.removeEventListener("mousemove", this.HandleRightDrag)
+        }.bind(this),
+        onmouseup:function(e){
+            e.preventDefault()
+            this.selectionHandleRight.removeEventListener("mousemove", this.HandleRightDrag)
+            this.startX = e.clientX
+        }.bind(this)})
+        setChildren(this.el,[ this.background, this.selection, this.selectionHandleLeft, this.selectionHandleRight])
+        graph.zoom(this.selectionX, this.selectionX + this.selectionWidth)
     }
 }
 
