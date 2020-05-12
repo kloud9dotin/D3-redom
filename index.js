@@ -107,6 +107,7 @@ class BrushRectangle {
     constructor(dy, width, height, dx, graph) {
         this.dy = dy
         this.maxWidth = width
+        this.selectionDisplayed = false
         this.startX = 0
         this.drag = false
         this.selectionWidth, this.selectionX
@@ -147,7 +148,6 @@ class BrushRectangle {
 
         this.selectionDrag = function(e) {
             e.preventDefault()
-            console.log("here")
             if (this.selectionX + e.clientX - this.startX >= 0 && this.selectionWidth + e.clientX - this.startX + this.selectionX  <= this.maxWidth) {
                 this.selectionX = this.selectionX + e.clientX - this.startX
             }
@@ -166,18 +166,26 @@ class BrushRectangle {
             onmouseup:function(e) {
                 this.background.removeEventListener("mousemove", this.backgroundDrag)
                 if(this.drag) {
-                    console.log(this.startX, e.clientX)
+                    this.selectionDisplayed = true
                     this.selectionWidth = Math.abs(this.startX - e.clientX)
                     this.selectionX = Math.min(this.startX, e.clientX) - 30
-                    console.log(this.selectionWidth, this.selectionX)
+                    this.drag = false
                     this.update()
                     return
                 } 
+                else {
+                    this.selectionDisplayed = false
+                    this.update()
+                }
             }.bind(this)})
         this.el = svg("g",{transform:"translate(30,0)"}, this.background)
-
     }
     update() {
+        if (!this.selectionDisplayed) {
+            setChildren(this.el,[ this.background])
+            graph.zoom(0, this.maxWidth)
+            return
+        }
         this.selection = svg("rect", {style:"fill:#c8c8c8",x:this.selectionX,y:this.dy,width:this.selectionWidth, height:40,
             onmousedown:function(e){
                 e.preventDefault()
@@ -216,7 +224,6 @@ class BrushRectangle {
         }.bind(this),
         onmouseleave:function(e){
             e.preventDefault()
-            console.log("leaving")
             this.selectionHandleRight.removeEventListener("mousemove", this.HandleRightDrag)
         }.bind(this),
         onmouseup:function(e){
