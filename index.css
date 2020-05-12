@@ -63,3 +63,6 @@ body {
 .handle {
     opacity: 0;
 }
+
+.crosshair {cursor: crosshair;}
+.move {cursor: move;}

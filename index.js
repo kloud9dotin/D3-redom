@@ -5,14 +5,15 @@ var colors = ["#48A36D",  "#56AE7C",  "#64B98C", "#72C39B", "#80CEAA", "#80CCB3"
 var visibility = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1]
 class Line {
     constructor() {
-        this.el = svg("path", {style:"fill:none;stroke:#33c7ff;stroke-width:2;"})
+        this.el = svg("path", {style:"fill:none;stroke:#33c7ff;stroke-width:2"})
     }
-    update(data) {
+    update(data) { 
         if(data == null) {
             this.el.removeAttribute("d")
             return
-        }    
+        }
         this.el.setAttribute("d",data[0])
+        this.el.setAttribute("clip-path", 'url(#clip2)')
         this.el.setAttribute("style","fill:none;stroke:"+data[1]+";")
     }
 }
@@ -101,6 +102,7 @@ class LineChart {
         this.x_ticks2 = list(svg("g"), XTicks)
         this.y_ticks = list(svg("g"), YTicks)
         this.brushRectangle = new BrushRectangle(this.height()-70,( x.range()[1] - x.range()[0]), 40, 30, this)
+        this.clippath = svg("defs", svg("clipPath", {id:"clip2"}, svg("rect",{x:this.margin().left,y:this.margin().top,width:this.width()-this.margin().left-this.margin().right,height:this.height()-this.margin().top-this.margin().bottom})))
 
         //Axis for chart
         this.x_axis = svg("g" , {transform:"translate(0,"+ this.xaxis_offset()+")",style:"text-anchor:middle"}, 
@@ -114,28 +116,40 @@ class LineChart {
         this.y_ticks)
 
         //Update line and ticks
-        let lineData = visibility.map(function(d,i){if(d == 0) return null
+        let lineData = visibility.map(function(d,i){if(d == 1) { 
             return [d3.line().x(d => x(Date.parse(d.date))).y(d => y(d[categories[i]]))(dataset), colors[i]]
-        }) 
+        } else return null
+        })
         this.multiLine.update(lineData)
         this.x_ticks.update(x.ticks().map(function(d){return [x(d),d]}))
         this.x_ticks2.update(x2.ticks().map(function(d){return [x2(d),d]}))
         this.y_ticks.update(y.ticks().map(function(d){return [y(d) ,d]}))
-        setChildren(this.el, [svg("g", {style:"clip-path:inset(0px 0px 0px 0px)"}, this.multiLine), this.x_axis, this.y_axis, this.brushRectangle, this.x_axis2])
+        setChildren(this.el, [this.clippath, this.multiLine, this.x_axis, this.y_axis, this.brushRectangle, this.x_axis2])
     }
     zoom(data0, data1) {
         var x = d3.scaleTime().domain(d3.extent(dataset, function(d) { return Date.parse(d.date) })).range([this.margin().left, this.width() - this.margin().right])
         data0 = x.invert(data0 + 30)
         data1 = x.invert(data1 + 30)
         var x = d3.scaleLinear().domain([data0, data1]).range([this.margin().left, this.width() - this.margin().right])
-        var y = d3.scaleLinear().domain([0, 100]).range([this.height() - this.margin().bottom, this.margin().top])
-        let lineData = visibility.map(function(d,i){if(d == 0) return null
+        let activeCatagories = categories.filter(function(d,i){
+            if (visibility[i] == 1) return d
+        })
+        
+        let yMax = d3.max(dataset, function(d){
+            let test = []
+            for(let i = 0;i< activeCatagories.length; i++) {
+                test.push(d[activeCatagories[i]])
+            }
+            return parseInt(d3.max(test))
+        })
+        var y = d3.scaleLinear().domain([0, yMax]).range([this.height() - this.margin().bottom, this.margin().top])
+        let lineData = visibility.map(function(d,i){if(d == 1) {
             return [d3.line().x(d => x(Date.parse(d.date))).y(d => y(d[categories[i]]))(dataset), colors[i]]
+        }else return null
         }) 
         this.multiLine.update(lineData)
         this.x_ticks.update(x.ticks().map(function(d){return [x(d),new Date(d)]}))
         this.y_ticks.update(y.ticks().map(function(d){return [y(d) ,d]}))
-
     }
 }
 
@@ -147,16 +161,19 @@ class BrushRectangle {
         this.backgroundStartX = null
         this.startX = 0
         this.drag = false
+        this.containerDrag = false
         this.selectionWidth = 0, this.selectionX = 0
+        this.handleClicked = false
         this.backgroundDrag = function(e) {
+            console.log("here")
             this.drag = true
+            this.containerDrag = true
             this.selectionWidth = Math.abs(this.startX - e.clientX-5)
             this.selectionX = Math.min(this.startX, e.clientX) - 30
             this.update()
         }.bind(this)
 
         this.HandleLeftDrag = function(e) {
-            e.preventDefault()
             if (this.selectionX + e.clientX - this.startX >= 0 ) {
                 this.selectionX = this.selectionX + e.clientX - this.startX
                 this.selectionWidth = this.selectionWidth - e.clientX + this.startX
@@ -173,7 +190,6 @@ class BrushRectangle {
         }.bind(this)
 
         this.HandleRightDrag = function(e) {
-            e.preventDefault()
             if (this.selectionWidth + e.clientX - this.startX + this.selectionX  <= this.maxWidth) {
                 this.selectionWidth = this.selectionWidth + e.clientX - this.startX
             }
@@ -197,85 +213,86 @@ class BrushRectangle {
             this.startX = e.clientX
             graph.zoom(this.selectionX, this.selectionX + this.selectionWidth)
         }.bind(this)
-
-        this.background = svg("rect", {width:this.maxWidth, height:40, y:dy, style:"fill:#e8e8e8",
+        this.background = svg("rect", {width:this.maxWidth, height:40, y:dy, style:"fill:#e8e8e8"})
+        this.container = svg("g.crosshair", {
             onmousedown:function(e){
                 this.startX = e.clientX
                 this.selectionX = e.clientX
                 this.selectionWidth = 0
                 this.selectionDisplayed = false
-                this.background.addEventListener("mousemove", this.backgroundDrag)
+                this.container.addEventListener("mousemove", this.backgroundDrag)
+
                 this.update()
             }.bind(this),
+            onmouseleave:function(e) {
+                this.container.removeEventListener("mousemove", this.HandleLeftDrag)
+                this.container.removeEventListener("mousemove", this.HandleRightDrag)
+            }.bind(this),
             onmouseup:function(e) {
-                this.background.removeEventListener("mousemove", this.backgroundDrag)
-                if(this.drag) {
+                this.container.removeEventListener("mousemove", this.backgroundDrag)
+                if(this.containerDrag) {
                     this.selectionDisplayed = true
-                    this.drag = false
+                    this.containerDrag = false
                     this.update()
                     return
                 } 
                 else {
-                    setChildren(this.el,[ this.background])
+                    console.log("here")
+                    setChildren(this.el,[ this.container])
                      graph.zoom(0, this.maxWidth)
                 }
-            }.bind(this)})
-        this.el = svg("g",{transform:"translate(30,0)"}, this.background)
+            }.bind(this)}, this.background)
+        this.el = svg("g",{transform:"translate(30,0)"}, this.container)
     }
     update() {
-        this.selection = svg("rect", {style:"fill:#c8c8c8",x:this.selectionX,y:this.dy,width:this.selectionWidth, height:40,
+        this.selection = svg("rect"+(this.selectionDisplayed?".move":""), {style:"fill:#c8c8c8",x:this.selectionX,y:this.dy,width:this.selectionWidth, height:40,
             onmousedown:function(e){
-                e.preventDefault()
+                e.stopPropagation()
                 this.selection.addEventListener("mousemove", this.selectionDrag)
                 this.startX = e.clientX
             }.bind(this),
             onmouseleave:function(e){
-                e.preventDefault()
+                e.stopPropagation()
                 this.selection.removeEventListener("mousemove", this.selectionDrag)
             }.bind(this),
             onmouseup:function(e){
-                e.preventDefault()
+                if(!this.containerDrag) e.stopPropagation()  
                 this.selection.removeEventListener("mousemove", this.selectionDrag)
-                this.background.removeEventListener("mousemove", this.backgroundDrag)
+                this.container.removeEventListener("mousemove", this.backgroundDrag)
                 this.selectionDisplayed = true
                 this.drag = false
                 this.update()
             }.bind(this)})
         this.selectionHandleLeft = svg("rect", {x:this.selectionX - 5, y:this.dy - 3,width:10,dx:-5,height:46,style:"opacity:0;cursor: e-resize;",
             onmousedown:function(e){
-                e.preventDefault()
-                this.selectionHandleLeft.addEventListener("mousemove", this.HandleLeftDrag)
+                e.stopPropagation()
+                this.container.addEventListener("mousemove", this.HandleLeftDrag)
                 this.startX = e.clientX
             }.bind(this),
-            onmouseleave:function(e){
-                e.preventDefault()
-                this.selectionHandleLeft.removeEventListener("mousemove", this.HandleLeftDrag)
-            }.bind(this),
             onmouseup:function(e){
-                e.preventDefault()
-                this.selectionHandleLeft.removeEventListener("mousemove", this.HandleLeftDrag)
+                e.stopPropagation()
+                this.container.removeEventListener("mousemove", this.HandleLeftDrag)
                 this.startX = e.clientX
             }.bind(this)})
         this.selectionHandleRight = svg("rect", {x:this.selectionX + this.selectionWidth - 5, y:this.dy - 3,width:10,dx:-5,height:46,style:"opacity:0;cursor: e-resize;",
         onmousedown:function(e){
-            e.preventDefault()
-            this.selectionHandleRight.addEventListener("mousemove", this.HandleRightDrag)
+            e.stopPropagation()
+            this.container.addEventListener("mousemove", this.HandleRightDrag)
             this.startX = e.clientX
-        }.bind(this),
-        onmouseleave:function(e){
-            e.preventDefault()
-            this.selectionHandleRight.removeEventListener("mousemove", this.HandleRightDrag)
         }.bind(this),
         onmouseup:function(e){
             e.preventDefault()
-            this.selectionHandleRight.removeEventListener("mousemove", this.HandleRightDrag)
+            this.container.removeEventListener("mousemove", this.HandleRightDrag)
             this.startX = e.clientX
         }.bind(this)})
         if(this.selectionDisplayed) {
-        setChildren(this.el,[ this.background, this.selection, this.selectionHandleLeft, this.selectionHandleRight])
+            setChildren(this.container, [this.background, this.selection, this.selectionHandleLeft, this.selectionHandleRight])
+            setChildren(this.el,[this.container])
+            // setChildren(this.el,[ this.background, this.selection, this.selectionHandleLeft, this.selectionHandleRight])
         }
         else {
-            setChildren(this.el,[ this.background, this.selection])
+            setChildren(this.container, [this.background, this.selection])
+            setChildren(this.el,[this.container])
         }
         graph.zoom(this.selectionX, this.selectionX + this.selectionWidth)
     }
