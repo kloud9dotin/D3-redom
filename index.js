@@ -92,7 +92,18 @@ class LineChart {
         //Prepare scales and update SVG size
         var x = d3.scaleTime().domain(d3.extent(dataset, function(d) { return Date.parse(d.date) })).range([this.margin().left, this.width() - this.margin().right])
         var x2 = d3.scaleTime().domain(d3.extent(dataset, function(d) { return Date.parse(d.date) })).range([this.margin().left, this.width() - this.margin().right])
-        var y = d3.scaleLinear().domain([0, 100]).range([this.height() - this.margin().bottom, this.margin().top])
+        let activeCatagories = categories.filter(function(d,i){
+            if (visibility[i] == 1) return d
+        })
+        
+        let yMax = d3.max(dataset, function(d){
+            let test = []
+            for(let i = 0;i< activeCatagories.length; i++) {
+                test.push(d[activeCatagories[i]])
+            }
+            return parseInt(d3.max(test))
+        })
+        var y = d3.scaleLinear().domain([0, yMax]).range([this.height() - this.margin().bottom, this.margin().top])
         this.el.setAttribute("width", this.width())
         this.el.setAttribute("height", this.height())
 
