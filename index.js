@@ -64,7 +64,8 @@ class LineChart {
         var y = d3.scaleLinear().domain([0, d3.max(data, d => d.y)]).range([this.height() - this.margin().bottom, this.margin().top])
         this.el.setAttribute("width", this.width())
         this.el.setAttribute("height", this.height())
-
+        this.x = x
+        this.x2 = x2
         //Import components for Chart
         this.line = new Line()
         this.x_ticks = list(svg("g"), XTicks)
@@ -108,11 +109,15 @@ class BrushRectangle {
         this.dy = dy
         this.maxWidth = width
         this.selectionDisplayed = false
+        this.backgroundStartX = null
         this.startX = 0
         this.drag = false
-        this.selectionWidth, this.selectionX
+        this.selectionWidth = 0, this.selectionX = 0
         this.backgroundDrag = function(e) {
             this.drag = true
+            this.selectionWidth = Math.abs(this.startX - e.clientX-5)
+            this.selectionX = Math.min(this.startX, e.clientX) - 30
+            this.update()
         }.bind(this)
 
         this.HandleLeftDrag = function(e) {
@@ -161,31 +166,28 @@ class BrushRectangle {
         this.background = svg("rect", {width:this.maxWidth, height:40, y:dy, style:"fill:#e8e8e8",
             onmousedown:function(e){
                 this.startX = e.clientX
+                this.selectionX = e.clientX
+                this.selectionWidth = 0
+                this.selectionDisplayed = false
                 this.background.addEventListener("mousemove", this.backgroundDrag)
+                this.update()
             }.bind(this),
             onmouseup:function(e) {
                 this.background.removeEventListener("mousemove", this.backgroundDrag)
                 if(this.drag) {
                     this.selectionDisplayed = true
-                    this.selectionWidth = Math.abs(this.startX - e.clientX)
-                    this.selectionX = Math.min(this.startX, e.clientX) - 30
                     this.drag = false
                     this.update()
                     return
                 } 
                 else {
-                    this.selectionDisplayed = false
-                    this.update()
+                    setChildren(this.el,[ this.background])
+                     graph.zoom(0, this.maxWidth)
                 }
             }.bind(this)})
         this.el = svg("g",{transform:"translate(30,0)"}, this.background)
     }
     update() {
-        if (!this.selectionDisplayed) {
-            setChildren(this.el,[ this.background])
-            graph.zoom(0, this.maxWidth)
-            return
-        }
         this.selection = svg("rect", {style:"fill:#c8c8c8",x:this.selectionX,y:this.dy,width:this.selectionWidth, height:40,
             onmousedown:function(e){
                 e.preventDefault()
@@ -199,7 +201,10 @@ class BrushRectangle {
             onmouseup:function(e){
                 e.preventDefault()
                 this.selection.removeEventListener("mousemove", this.selectionDrag)
-                this.startX = e.clientX
+                this.background.removeEventListener("mousemove", this.backgroundDrag)
+                this.selectionDisplayed = true
+                this.drag = false
+                this.update()
             }.bind(this)})
         this.selectionHandleLeft = svg("rect", {x:this.selectionX - 5, y:this.dy - 3,width:10,dx:-5,height:46,style:"opacity:0;cursor: e-resize;",
             onmousedown:function(e){
@@ -231,7 +236,12 @@ class BrushRectangle {
             this.selectionHandleRight.removeEventListener("mousemove", this.HandleRightDrag)
             this.startX = e.clientX
         }.bind(this)})
+        if(this.selectionDisplayed) {
         setChildren(this.el,[ this.background, this.selection, this.selectionHandleLeft, this.selectionHandleRight])
+        }
+        else {
+            setChildren(this.el,[ this.background, this.selection])
+        }
         graph.zoom(this.selectionX, this.selectionX + this.selectionWidth)
     }
 }
@@ -275,7 +285,7 @@ class YTicks {
 
 
 let graph = new LineChart()
-let total = el("div.w-100", graph, el("div.pa2", el("br"), el("h3", "docs"), el("p", "Use graph.<property>() to get the height of the graph and graph.<property>(x) to set height to x."),
+let total = el("div.w-100", graph, el("br"), svg("svg",{id:"D3Brush"}), el("div.pa2", el("br"), el("h3", "docs"), el("p", "Use graph.<property>() to get the height of the graph and graph.<property>(x) to set height to x."),
     el("p", "Properties available are height,width, xaxis_offset, yaxis_offset, auto_resize. margin is a read-only property."),
     el("p", "Use graph.update() to update graph"),
     el("p", "To change values of plotted point edit variable data"),
@@ -289,3 +299,38 @@ graph.update()
 window.onresize = function() {
     graph.update()
 }
+
+xScale = graph.x
+xScale2 = graph.x2
+
+var xAxis2 = d3.axisBottom() // xAxis for brush slider
+    .scale(xScale2)
+
+var d3svg = d3.select("#D3Brush").attr("width", graph.width())
+var context = d3svg.append("g") // Brushing context box container
+    .attr("transform", "translate(" + 0 + "," + 40 + ")")
+    .attr("class", "context");
+
+var brush = d3.brushX()//for slider bar at the bottom
+    .on("brush", brushed)
+
+
+context.append("g") // Create brushing xAxis
+    .attr("class", "x axis1")
+    .attr("transform", "translate(0,40)")
+    .call(xAxis2);
+
+context.append("g")
+    .attr("class", "x brush")
+    .call(brush)
+    .selectAll("rect")
+    .attr("height", 40) // Make brush rects same height 
+      .attr("fill", "#E6E7E8")
+
+
+
+
+function brushed() {
+    xScale.domain(d3.event.selection === null ? xScale2.domain() : brush.extent()); // If brush is empty then reset the Xscale domain to default, if not then make it the brush extent 
+    console.log(xScale.domain())    
+};
