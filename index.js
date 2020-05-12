@@ -1,12 +1,49 @@
 const { el, svg, mount, list, setChildren } = redom
 
-var data = [
-    {x: 0, y: 10}, 
-    {x: 10, y: 40}, 
-    {x: 20, y: 30}, 
-    {x: 30, y: 70}, 
-    {x: 40, y: 0}
-  ]
+var categories = ["Ageing","Aids","Animal Welfare","Bird Flu","BSE","Coal Pits","EU","Countryside","Crime","Defence","Drug Abuse","Economy","Education","Farming","German Reunification","GM foods","Housing","Inflation/Prices","Inner Cities","Local Govt","Low Pay","Morality","NHS","Northern Ireland","Nuclear Power","Nuclear Weapons","Pensions","Fuel Prices","Environment","The Pound","Poverty/Inequality","Privatisation","Public Services","Immigration","Scots/Welsh Assembly","Taxation","Trade Unions","Transport","Tsunami","Unemployment"]
+var colors = ["#48A36D",  "#56AE7C",  "#64B98C", "#72C39B", "#80CEAA", "#80CCB3", "#7FC9BD", "#7FC7C6", "#7EC4CF", "#7FBBCF", "#7FB1CF", "#80A8CE", "#809ECE", "#8897CE", "#8F90CD", "#9788CD", "#9E81CC", "#AA81C5", "#B681BE", "#C280B7", "#CE80B0", "#D3779F", "#D76D8F", "#DC647E", "#E05A6D", "#E16167", "#E26962", "#E2705C", "#E37756", "#E38457", "#E39158", "#E29D58", "#E2AA59", "#E0B15B", "#DFB95C", "#DDC05E", "#DBC75F", "#E3CF6D", "#EAD67C", "#F2DE8A"]
+var visibility = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1]
+class Line {
+    constructor() {
+        this.el = svg("path", {style:"fill:none;stroke:#33c7ff;stroke-width:2;"})
+    }
+    update(data) {
+        if(data == null) {
+            this.el.removeAttribute("d")
+            return
+        }    
+        this.el.setAttribute("d",data[0])
+        this.el.setAttribute("style","fill:none;stroke:"+data[1]+";")
+    }
+}
+
+class XTicks {
+    constructor() {
+        this.line
+        this.text
+        this.el = svg("g", {style:"opacity:1;"}) 
+    }
+    update(data) {
+        this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
+        this.line = svg("line", {style:"stroke:currentcolor;",y2:"6"}) 
+        this.text = svg("text", {style:"fill:currentcolor;",y:9, dy:"0.71em"},   data[1].getMonth()+1 + "/" + (1900 + data[1].getYear()))
+        setChildren(this.el, [this.line, this.text])
+    }
+}
+
+class YTicks {
+    constructor() {
+        this.line
+        this.text
+        this.el = svg("g", {style:"opacity:1;"}) 
+    }
+    update(data) {
+        this.el.setAttribute("transform", "translate(0," + data[0] + ")")
+        this.line = svg("line", {style:"stroke:currentcolor;",x2:"-6"}) 
+        this.text = svg("text", {style:"fill:currentcolor;",x:-9, dy:"0.32em"}, data[1])
+        setChildren(this.el, [this.line, this.text])
+    }
+}
 
 class LineChart {
     constructor() {
@@ -42,32 +79,24 @@ class LineChart {
             if (!arguments.length) return yaxis_offset
             yaxis_offset = value
         }
-        this.auto_resize = function(value) {
-            if (!arguments.length) return auto_resize
-            auto_resize = value
-        }
         this.el = svg("svg", {id:"graph", width:0, height:0})
-            
     }
     update() {
-        if(this.auto_resize() > 0) {
         let width = this.el.parentElement.clientWidth
         this.width(width/2)
         this.height(width * 0.28)
         this.xaxis_offset(width * 0.28 - 110)
         this.margin2({top: this.height() - 70, right: 20, bottom: 30, left: 30})
-        }
-
+        
         //Prepare scales and update SVG size
-        var x = d3.scaleLinear().domain([0, d3.max(data, d => d.x)]).range([this.margin().left, this.width() - this.margin().right])
-        var x2 = d3.scaleLinear().domain([0, d3.max(data, d => d.x)]).range([this.margin().left, this.width() - this.margin().right])
-        var y = d3.scaleLinear().domain([0, d3.max(data, d => d.y)]).range([this.height() - this.margin().bottom, this.margin().top])
+        var x = d3.scaleTime().domain(d3.extent(dataset, function(d) { return Date.parse(d.date) })).range([this.margin().left, this.width() - this.margin().right])
+        var x2 = d3.scaleTime().domain(d3.extent(dataset, function(d) { return Date.parse(d.date) })).range([this.margin().left, this.width() - this.margin().right])
+        var y = d3.scaleLinear().domain([0, 100]).range([this.height() - this.margin().bottom, this.margin().top])
         this.el.setAttribute("width", this.width())
         this.el.setAttribute("height", this.height())
-        this.x = x
-        this.x2 = x2
+
         //Import components for Chart
-        this.line = new Line()
+        this.multiLine = list(svg("g"), Line)
         this.x_ticks = list(svg("g"), XTicks)
         this.x_ticks2 = list(svg("g"), XTicks)
         this.y_ticks = list(svg("g"), YTicks)
@@ -85,20 +114,26 @@ class LineChart {
         this.y_ticks)
 
         //Update line and ticks
-        this.line.update(d3.line().x(d => x(d.x)).y(d => y(d.y))(data))
+        let lineData = visibility.map(function(d,i){if(d == 0) return null
+            return [d3.line().x(d => x(Date.parse(d.date))).y(d => y(d[categories[i]]))(dataset), colors[i]]
+        }) 
+        this.multiLine.update(lineData)
         this.x_ticks.update(x.ticks().map(function(d){return [x(d),d]}))
         this.x_ticks2.update(x2.ticks().map(function(d){return [x2(d),d]}))
         this.y_ticks.update(y.ticks().map(function(d){return [y(d) ,d]}))
-        setChildren(this.el, [svg("g", {style:"clip-path:inset(0px 0px 0px 0px)"}, this.line), this.x_axis, this.y_axis, this.brushRectangle, this.x_axis2])
+        setChildren(this.el, [svg("g", {style:"clip-path:inset(0px 0px 0px 0px)"}, this.multiLine), this.x_axis, this.y_axis, this.brushRectangle, this.x_axis2])
     }
     zoom(data0, data1) {
-        var x = d3.scaleLinear().domain([0, d3.max(data, d => d.x)]).range([this.margin().left, this.width() - this.margin().right])
+        var x = d3.scaleTime().domain(d3.extent(dataset, function(d) { return Date.parse(d.date) })).range([this.margin().left, this.width() - this.margin().right])
         data0 = x.invert(data0 + 30)
         data1 = x.invert(data1 + 30)
         var x = d3.scaleLinear().domain([data0, data1]).range([this.margin().left, this.width() - this.margin().right])
-        var y = d3.scaleLinear().domain([0, d3.max(data, d => d.y)]).range([this.height() - this.margin().bottom, this.margin().top])
-        this.line.update(d3.line().x(d => x(d.x)).y(d => y(d.y))(data))
-        this.x_ticks.update(x.ticks().map(function(d){return [x(d),d]}))
+        var y = d3.scaleLinear().domain([0, 100]).range([this.height() - this.margin().bottom, this.margin().top])
+        let lineData = visibility.map(function(d,i){if(d == 0) return null
+            return [d3.line().x(d => x(Date.parse(d.date))).y(d => y(d[categories[i]]))(dataset), colors[i]]
+        }) 
+        this.multiLine.update(lineData)
+        this.x_ticks.update(x.ticks().map(function(d){return [x(d),new Date(d)]}))
         this.y_ticks.update(y.ticks().map(function(d){return [y(d) ,d]}))
 
     }
@@ -246,91 +281,9 @@ class BrushRectangle {
     }
 }
 
-class Line {
-    constructor() {
-        this.el = svg("path", {style:"fill:none;stroke:#33c7ff;stroke-width:2;"})
-    }
-    update(data) {
-        this.el.setAttribute("d",data)
-    }
-}
-
-class XTicks {
-    constructor() {
-        this.line
-        this.text
-        this.el = svg("g", {style:"opacity:1;"}) 
-    }
-    update(data) {
-        this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
-        this.line = svg("line", {style:"stroke:currentcolor;",y2:"6"}) 
-        this.text = svg("text", {style:"fill:currentcolor;",y:9, dy:"0.71em"}, data[1])
-        setChildren(this.el, [this.line, this.text])
-    }
-}
-
-class YTicks {
-    constructor() {
-        this.line
-        this.text
-        this.el = svg("g", {style:"opacity:1;"}) 
-    }
-    update(data) {
-        this.el.setAttribute("transform", "translate(0," + data[0] + ")")
-        this.line = svg("line", {style:"stroke:currentcolor;",x2:"-6"}) 
-        this.text = svg("text", {style:"fill:currentcolor;",x:-9, dy:"0.32em"}, data[1])
-        setChildren(this.el, [this.line, this.text])
-    }
-}
-
-
 let graph = new LineChart()
-let total = el("div.w-100", graph, el("br"), svg("svg",{id:"D3Brush"}), el("div.pa2", el("br"), el("h3", "docs"), el("p", "Use graph.<property>() to get the height of the graph and graph.<property>(x) to set height to x."),
-    el("p", "Properties available are height,width, xaxis_offset, yaxis_offset, auto_resize. margin is a read-only property."),
-    el("p", "Use graph.update() to update graph"),
-    el("p", "To change values of plotted point edit variable data"),
-    el("p", "Set auto_resize > 0 to enable and auto_resize = 0 to disable.(default = enabled)")))
-
-mount(document.body, total);
-
+mount(document.getElementById("Redom-render"), graph);
 graph.update()
-
-
 window.onresize = function() {
     graph.update()
 }
-
-xScale = graph.x
-xScale2 = graph.x2
-
-var xAxis2 = d3.axisBottom() // xAxis for brush slider
-    .scale(xScale2)
-
-var d3svg = d3.select("#D3Brush").attr("width", graph.width())
-var context = d3svg.append("g") // Brushing context box container
-    .attr("transform", "translate(" + 0 + "," + 40 + ")")
-    .attr("class", "context");
-
-var brush = d3.brushX()//for slider bar at the bottom
-    .on("brush", brushed)
-
-
-context.append("g") // Create brushing xAxis
-    .attr("class", "x axis1")
-    .attr("transform", "translate(0,40)")
-    .call(xAxis2);
-
-context.append("g")
-    .attr("class", "x brush")
-    .call(brush)
-    .selectAll("rect")
-    .attr("height", 40) // Make brush rects same height 
-      .attr("fill", "#E6E7E8")
-
-
-
-
-function brushed() {
-    xScale.domain(d3.event.selection === null ? xScale2.domain() : brush.extent()); // If brush is empty then reset the Xscale domain to default, if not then make it the brush extent 
-    console.log(xScale.domain())    
-};
