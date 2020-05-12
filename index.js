@@ -310,8 +310,41 @@ class BrushRectangle {
 }
 
 let graph = new LineChart()
-mount(document.getElementById("Redom-render"), graph);
+class Li {
+    constructor() {
+        this.el = el("li");
+    }
+    update(data) {
+        this.el.textContent = categories[data]
+        if(visibility[data] == 1) {this.el.style.color = colors[data]}
+        else {this.el.style.color = "black"}
+        this.el.addEventListener("click", function(){
+            console.log("clicked", data)
+            if(visibility[data] == 1) {
+                visibility[data] = 0
+                this.el.style.color = "black"
+            }
+            else {
+                visibility[data] = 1
+                this.el.style.color = colors[data]
+            }
+            graph.update()
+        }.bind(this))
+
+    }
+}
+const ul = list("ul", Li);
+let total = el("div", graph ,ul)
+
+mount(document.getElementById("Redom-render"), total);
 graph.update()
 window.onresize = function() {
     graph.update()
 }
+
+let listData = []
+for (let i=0;i<40;i++) {
+    listData.push(i)
+}
+console.log(listData)
+ul.update(listData)
