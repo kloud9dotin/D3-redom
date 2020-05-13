@@ -7,11 +7,7 @@ class Line {
     constructor() {
         this.el = svg("path", {style:"fill:none;stroke:#33c7ff;stroke-width:2"})
     }
-    update(data) { 
-        if(data == null) {
-            this.el.removeAttribute("d")
-            return
-        }
+    update(data) {
         this.el.setAttribute("d",data[0])
         this.el.setAttribute("clip-path", 'url(#clip2)')
         this.el.setAttribute("style","fill:none;stroke:"+data[1]+";")
@@ -153,7 +149,8 @@ class LineChart {
         let lineData = visibility.map(function(d,i){if(d == 1) { 
             return [d3.line().x(d => x(Date.parse(d.date))).y(d => y(d[categories[i]]))(dataset), colors[i]]
         } else return null
-        })
+        }).filter(function(d){if (d != null) return d})
+        lineData = lineData
         this.multiLine.update(lineData)
         this.x_ticks.update(x.ticks().map(function(d){return [x(d),d]}))
         this.x_ticks2.update(x2.ticks().map(function(d){return [x2(d),d]}))
@@ -186,7 +183,7 @@ class LineChart {
         let lineData = visibility.map(function(d,i){if(d == 1) {
             return [d3.line().x(d => x(Date.parse(d.date))).y(d => y(d[categories[i]]))(dataset), colors[i]]
         }else return null
-        }) 
+        }).filter(function(d){if (d != null) return d})
         this.multiLine.update(lineData)
         this.x_ticks.update(x.ticks().map(function(d){return [x(d),new Date(d)]}))
         this.y_ticks.update(y.ticks().map(function(d){return [y(d) ,d]}))
