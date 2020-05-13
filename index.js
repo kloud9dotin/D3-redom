@@ -17,6 +17,29 @@ class Line {
         this.el.setAttribute("style","fill:none;stroke:"+data[1]+";")
     }
 }
+class legend {
+    constructor() {
+        this.checkbox = svg("rect", {width:10,height:10})
+        this.label = svg("text",{y:8,x:15}) 
+        this.el = svg("g.legend", this.checkbox, this.label)
+    }
+    update(data) {
+        this.label.textContent = categories[data]
+        this.checkbox.setAttribute("fill",(visibility[data] == 1?colors[data]: "#c8c8c8"))
+        this.checkbox.addEventListener("click", function() {
+            if(visibility[data] == 1) {
+                visibility[data] = 0
+                this.checkbox.setAttribute("fill", "#c8c8c8")
+            }
+            else {
+                visibility[data] = 1
+                this.checkbox.setAttribute("fill", colors[data])
+            }
+            graph.update()
+        }.bind(this))
+        this.el.setAttribute("transform", "translate(" + (graph.width() - graph.margin().left - graph.margin().right/3 - 30) + "," + (11.25+11.25*data) + ")")
+    }
+}
 
 class XTicks {
     constructor() {
@@ -48,13 +71,13 @@ class YTicks {
 
 class LineChart {
     constructor() {
-        var margin = {top: 10, right: 20, bottom: 110, left: 30},
+        var margin = {top: 20, right: 200, bottom: 100, left: 50},
             margin2 = {top: 230, right: 20, bottom: 30, left: 30},
             width = 500,
             height = 300,
             height2 = 40,
             xaxis_offset = 280,
-            yaxis_offset = 30,
+            yaxis_offset = 50,
             auto_resize = 1
 
         this.height = function(value) {
@@ -84,9 +107,9 @@ class LineChart {
     }
     update() {
         let width = this.el.parentElement.clientWidth
-        this.width(width/2)
-        this.height(width * 0.28)
-        this.xaxis_offset(width * 0.28 - 110)
+        this.width(960)
+        this.height(500/*width * 0.28*/)
+        this.xaxis_offset(/*width * 0.28*/500 - 100)
         this.margin2({top: this.height() - 70, right: 20, bottom: 30, left: 30})
         
         //Prepare scales and update SVG size
@@ -135,12 +158,18 @@ class LineChart {
         this.x_ticks.update(x.ticks().map(function(d){return [x(d),d]}))
         this.x_ticks2.update(x2.ticks().map(function(d){return [x2(d),d]}))
         this.y_ticks.update(y.ticks().map(function(d){return [y(d) ,d]}))
-        setChildren(this.el, [this.clippath, this.multiLine, this.x_axis, this.y_axis, this.brushRectangle, this.x_axis2])
+        this.legends = list(svg("g"), legend)
+        let listData = []
+        for (let i=0;i<40;i++) {
+            listData.push(i)
+        }
+        this.legends.update(listData)
+        setChildren(this.el, [this.legends, this.clippath, this.multiLine, this.x_axis, this.y_axis, this.brushRectangle, this.x_axis2])
     }
     zoom(data0, data1) {
         var x = d3.scaleTime().domain(d3.extent(dataset, function(d) { return Date.parse(d.date) })).range([this.margin().left, this.width() - this.margin().right])
-        data0 = x.invert(data0 + 30)
-        data1 = x.invert(data1 + 30)
+        data0 = x.invert(data0 + 50)
+        data1 = x.invert(data1 + 50)
         var x = d3.scaleLinear().domain([data0, data1]).range([this.margin().left, this.width() - this.margin().right])
         let activeCatagories = categories.filter(function(d,i){
             if (visibility[i] == 1) return d
@@ -176,7 +205,6 @@ class BrushRectangle {
         this.selectionWidth = 0, this.selectionX = 0
         this.handleClicked = false
         this.backgroundDrag = function(e) {
-            console.log("here")
             this.drag = true
             this.containerDrag = true
             this.selectionWidth = Math.abs(this.startX - e.clientX-5)
@@ -248,12 +276,11 @@ class BrushRectangle {
                     return
                 } 
                 else {
-                    console.log("here")
                     setChildren(this.el,[ this.container])
                      graph.zoom(0, this.maxWidth)
                 }
             }.bind(this)}, this.background)
-        this.el = svg("g",{transform:"translate(30,0)"}, this.container)
+        this.el = svg("g",{transform:"translate(50,0)"}, this.container)
     }
     update() {
         this.selection = svg("rect"+(this.selectionDisplayed?".move":""), {style:"fill:#c8c8c8",x:this.selectionX,y:this.dy,width:this.selectionWidth, height:40,
@@ -310,41 +337,10 @@ class BrushRectangle {
 }
 
 let graph = new LineChart()
-class Li {
-    constructor() {
-        this.el = el("li");
-    }
-    update(data) {
-        this.el.textContent = categories[data]
-        if(visibility[data] == 1) {this.el.style.color = colors[data]}
-        else {this.el.style.color = "black"}
-        this.el.addEventListener("click", function(){
-            console.log("clicked", data)
-            if(visibility[data] == 1) {
-                visibility[data] = 0
-                this.el.style.color = "black"
-            }
-            else {
-                visibility[data] = 1
-                this.el.style.color = colors[data]
-            }
-            graph.update()
-        }.bind(this))
-
-    }
-}
-const ul = list("ul", Li);
-let total = el("div", graph ,ul)
+let total = el("div", graph)
 
 mount(document.getElementById("Redom-render"), total);
 graph.update()
 window.onresize = function() {
     graph.update()
 }
-
-let listData = []
-for (let i=0;i<40;i++) {
-    listData.push(i)
-}
-console.log(listData)
-ul.update(listData)

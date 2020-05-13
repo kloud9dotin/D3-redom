@@ -160,7 +160,6 @@ d3.tsv("./data.tsv").then(function(data) {
 
   // draw legend
   var legendSpace = 450 / categories.length; // 450/number of issues (ex. 40)    
-
   issue.append("rect")
       .attr("width", 10)
       .attr("height", 10)                                    

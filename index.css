@@ -66,3 +66,11 @@ body {
 
 .crosshair {cursor: crosshair;}
 .move {cursor: move;}
+
+ul {
+  list-style: none;
+}
+
+input {
+  background-color: red;
+}
