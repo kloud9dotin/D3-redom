@@ -117,7 +117,7 @@ class LineChart {
         svg("path", {style:"fill:none;stroke:currentcolor;stroke-width:1;",d:"M0.5," + (height - margin.bottom+ 0.5) + "V" + (margin.top - 0.5) }),
         this.yTicks)
 
-        this.brushRectangle = new BrushRectangle(this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, 30, this)
+        this.brushRectangle = new BrushRectangle("X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, 50, this)
         this.clippath = svg("defs", svg("clipPath", {id:"clip2"}, svg("rect",{x:this.margin().left,y:this.margin().top,width:this.width()-this.margin().left-this.margin().right,height:this.height()-this.margin().top-this.margin().bottom})))
         this.el = svg("svg", {id:"graph", width:960, height:500})
     }
@@ -173,153 +173,162 @@ class LineChart {
 }
 
 class BrushRectangle {
-    constructor(dy, width, height, dx, graph) {
-        this.dy = dy
-        this.maxWidth = width
-        this.selectionDisplayed = false
-        this.startX = 0
-        this.containerDrag = false
-        this.selectionWidth = 0, this.selectionX = 0
-        this.backgroundDrag = function(e) {
-            this.selectionWidth = Math.abs(this.startX - e.clientX-5)
-            this.selectionX = Math.min(this.startX, e.clientX) - 30
-            this.containerDrag = true
+    constructor(dim, dy, width, height, dx, graph) {
+        this.dim = dim
+        this.width = width
+        this.height = height
+        this.graph = graph
+        this.cursor = {overlay: "crosshair", selection:"move", handle_e:"ew-resize", handle_w:"ew-resize"}
+        this.signsX = {overlay: +1, selection: +1, handle_w: -1, handle_e: +1}
+        this.extent = [[0,0],[this.width,this.height]]
+        this.selectionExtent = null
+        let started = function(event) {
+            var type = event.target.classList[0],
+                mode  =  (type === "selection"? "drag" : "handle"),
+                dim = this.dim,
+                signX = dim === "Y" ? null : this.signsX[type],
+                signY = null,
+                extent = this.extent,
+                selection = this.selectionExtent,
+                W = extent[0][0], w0, w1,
+                N = extent[0][1], n0, n1,
+                E = extent[1][0], e0, e1,
+                S = extent[1][1], s0, s1,
+                dx = 0,
+                dy = 0,
+                moving,
+                point0 = [event.clientX, event.clientY],
+                point = point0
+            
+            if (type === "overlay") {
+                if (selection) moving = true;
+                this.selectionExtent = selection = [
+                    [w0 = dim === "Y" ? W : point0[0] - 50, n0 = dim === "X" ? N : point0[1] - 50],
+                    [e0 = dim === "Y" ? E : w0, s0 = dim === "X" ? S : n0]
+                ];
+            } else {
+                w0 = selection[0][0];
+                n0 = selection[0][1];
+                e0 = selection[1][0];
+                s0 = selection[1][1];
+            }
+            w1 = w0;
+            n1 = n0;
+            e1 = e0;
+            s1 = s0;
+            this.el.setAttribute("style", "pointer-events:none")
+            this.overlay.setAttribute("cursor", this.cursor[type])
+
+            var moved = function(event) {
+                let point1 = [event.clientX, event.clientY]
+                point = point1
+                moving = true
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                let obj = this
+                move.bind(this)()
+            }.bind(this)
+
+            var ended = function(event) {
+                event.stopImmediatePropagation();
+                event.view.removeEventListener("mousemove", moved, true)
+                event.view.removeEventListener("mouseup", ended, true)
+                this.el.setAttribute("style", "pointer-events:all")
+                if(selection[0][0] - selection[1][0] == 0) this.selectionExtent = null
+                this.update(0)
+                this.overlay.setAttribute("cursor", this.cursor["overlay"])
+            }.bind(this)
+
+            event.view.addEventListener("mousemove", moved, true)
+            event.view.addEventListener("mouseup", ended, true)
+            event.preventDefault()
+            event.stopImmediatePropagation()
             this.update()
-        }.bind(this)
 
-        this.HandleLeftDrag = function(e) {
-            if (this.selectionX + e.clientX - this.startX >= 0 ) {
-                this.selectionX = this.selectionX + e.clientX - this.startX
-                this.selectionWidth = this.selectionWidth - e.clientX + this.startX
-            }
-            else {
-                this.selectionX = 0
-            }
-            this.selection.setAttribute("width", this.selectionWidth)
-            this.selectionHandleLeft.setAttribute("x", this.selectionX - 5)
-            this.selection.setAttribute("x", this.selectionX)
-            this.selectionHandleRight.setAttribute("x", this.selectionX + this.selectionWidth - 5)
-            this.startX = e.clientX
-            graph.zoom(this.selectionX, this.selectionX + this.selectionWidth)
-        }.bind(this)
+            
 
-        this.HandleRightDrag = function(e) {
-            if (this.selectionWidth + e.clientX - this.startX + this.selectionX  <= this.maxWidth) {
-                this.selectionWidth = this.selectionWidth + e.clientX - this.startX
-            }
-            else {
-                this.selectionWidth = this.maxWidth - this.selectionX
-            }
-            this.selection.setAttribute("width", this.selectionWidth)
-            this.selectionHandleRight.setAttribute("x", this.selectionX + this.selectionWidth - 5)
-            this.startX = e.clientX
-            graph.zoom(this.selectionX, this.selectionX + this.selectionWidth)
-        }.bind(this)
+            function move() {
+                var t;
+                dx = point[0] - point0[0];
+                dy = point[1] - point0[1];
 
-        this.selectionDrag = function(e) {
-            e.preventDefault()
-            if (this.selectionX + e.clientX - this.startX >= 0 && this.selectionWidth + e.clientX - this.startX + this.selectionX  <= this.maxWidth) {
-                this.selectionX = this.selectionX + e.clientX - this.startX
-            }
-            this.selectionHandleLeft.setAttribute("x", this.selectionX - 5)
-            this.selection.setAttribute("x", this.selectionX)
-            this.selectionHandleRight.setAttribute("x", this.selectionX + this.selectionWidth - 5)
-            this.startX = e.clientX
-            graph.zoom(this.selectionX, this.selectionX + this.selectionWidth)
-        }.bind(this)
-        this.background = svg("rect", {width:this.maxWidth, height:40, y:dy, style:"fill:#e8e8e8"})
-        this.container = svg("g.crosshair", {
-            onmousedown:function(e){
-                this.startX = e.clientX
-                this.selectionX = e.clientX
-                this.selectionWidth = 0
-                this.selectionDisplayed = false
-                this.container.addEventListener("mousemove", this.backgroundDrag)
-                this.update()
-            }.bind(this),
-            onmouseleave:function(e) {
-                this.container.removeEventListener("mousemove", this.HandleLeftDrag)
-                this.container.removeEventListener("mousemove", this.HandleRightDrag)
-            }.bind(this),
-            ontouchend:function(e) {
-                this.container.removeEventListener("touchmove", this.backgroundDrag)
-                if(this.containerDrag) {
-                    this.selectionDisplayed = true
-                    this.containerDrag = false
+                switch (mode) {
+                    case "drag": {
+                      if (signX) dx = Math.max(W - w0, Math.min(E - e0, dx)), w1 = w0 + dx, e1 = e0 + dx;
+                      if (signY) dy = Math.max(N - n0, Math.min(S - s0, dy)), n1 = n0 + dy, s1 = s0 + dy;
+                      break;
+                    }
+                    case "handle": {
+                      if (signX < 0) dx = Math.max(W - w0, Math.min(E - w0, dx)), w1 = w0 + dx, e1 = e0;
+                      else if (signX > 0) dx = Math.max(W - e0, Math.min(E - e0, dx)), w1 = w0, e1 = e0 + dx;
+                      if (signY < 0) dy = Math.max(N - n0, Math.min(S - n0, dy)), n1 = n0 + dy, s1 = s0;
+                      else if (signY > 0) dy = Math.max(N - s0, Math.min(S - s0, dy)), n1 = n0, s1 = s0 + dy;
+                      break;
+                    }
+                  }
+
+                  if (e1 < w1) {
+                    signX *= -1;
+                    t = w0, w0 = e0, e0 = t;
+                    t = w1, w1 = e1, e1 = t;
+                  }
+            
+                  if (s1 < n1) {
+                    signY *= -1;
+                    t = n0, n0 = s0, s0 = t;
+                    t = n1, n1 = s1, s1 = t;
+                    if (type in flipY) overlay.attr("cursor", cursors[type = flipY[type]]);
+                  }
+                  if (this.selectionExtent) selection = this.selectionExtent;
+            
+                  if (selection[0][0] !== w1
+                      || selection[0][1] !== n1
+                      || selection[1][0] !== e1
+                      || selection[1][1] !== s1) {
+                    this.selectionExtent = [[w1, n1], [e1 , s1]];
                     this.update()
-                    return
-                } 
-                else {
-                    setChildren(this.el,[ this.container])
-                     graph.zoom(0, this.maxWidth)
-                }
-            }.bind(this),
-            onmouseup:function(e) {
-                this.container.removeEventListener("mousemove", this.backgroundDrag)
-                if(this.containerDrag) {
-                    this.selectionDisplayed = true
-                    this.containerDrag = false
-                    this.update()
-                    return
-                } 
-                else {
-                    setChildren(this.el,[ this.container])
-                     graph.zoom(0, this.maxWidth)
-                }
-            }.bind(this)}, this.background)
-        this.el = svg("g",{transform:"translate(50,0)"}, this.container)
+                  }
+
+            }
+
+
+        }.bind(this)
+
+        this.overlay = svg("rect.overlay", {x:0,y:0,width:this.width,height:this.height,cursor:this.cursor["overlay"],fill:"#E6E7E8",style:"pointer-events:all",onmousedown: started})
+        this.selection = svg("rect.selection", {height:40,cursor:this.cursor["selection"],fill:"#fff","fill-opacity":0.3,stroke:"#fff",style:"display:none",onmousedown: started})
+        this.handleLeft = svg("rect.handle_w", {height:40,cursor:this.cursor["handle_w"],fill:"",style:"display:none",onmousedown: started})
+        this.handleRight = svg("rect.handle_e", {height:40,cursor:this.cursor["handle_e"],fill:"",style:"display:none",onmousedown: started})
+        this.el = svg("g",{transform:"translate("+ dx +"," + dy +")",style:"pointer-events:all"}, this.overlay, this.selection, this.handleRight, this.handleLeft)
     }
     update() {
-        this.selection = svg("rect"+(this.selectionDisplayed?".move":""), {style:"fill:#c8c8c8",x:this.selectionX,y:this.dy,width:this.selectionWidth, height:40,
-            onmousedown:function(e){
-                console.log(e.type)
-                e.stopPropagation()
-                this.selection.addEventListener("mousemove", this.selectionDrag)
-                this.startX = e.clientX
-            }.bind(this),
-            onmouseleave:function(e){
-                e.stopPropagation()
-                this.selection.removeEventListener("mousemove", this.selectionDrag)
-            }.bind(this),
-            onmouseup:function(e){
-                if(!this.containerDrag) e.stopPropagation()  
-                this.selection.removeEventListener("mousemove", this.selectionDrag)
-                this.container.removeEventListener("mousemove", this.backgroundDrag)
-                this.selectionDisplayed = true
-                this.update()
-            }.bind(this)})
-        this.selectionHandleLeft = svg("rect", {x:this.selectionX - 5, y:this.dy - 3,width:10,dx:-5,height:46,style:"opacity:0;cursor: e-resize;",
-            onmousedown:function(e){
-                e.stopPropagation()
-                this.container.addEventListener("mousemove", this.HandleLeftDrag)
-                this.startX = e.clientX
-            }.bind(this),
-            onmouseup:function(e){
-                e.stopPropagation()
-                this.container.removeEventListener("mousemove", this.HandleLeftDrag)
-                this.startX = e.clientX
-            }.bind(this)})
-        this.selectionHandleRight = svg("rect", {x:this.selectionX + this.selectionWidth - 5, y:this.dy - 3,width:10,dx:-5,height:46,style:"opacity:0;cursor: e-resize;",
-        onmousedown:function(e){
-            e.stopPropagation()
-            this.container.addEventListener("mousemove", this.HandleRightDrag)
-            this.startX = e.clientX
-        }.bind(this),
-        onmouseup:function(e){
-            e.preventDefault()
-            this.container.removeEventListener("mousemove", this.HandleRightDrag)
-            this.startX = e.clientX
-        }.bind(this)})
-        if(this.selectionDisplayed) {
-            setChildren(this.container, [this.background, this.selection, this.selectionHandleLeft, this.selectionHandleRight])
-            setChildren(this.el,[this.container])
-            // setChildren(this.el,[ this.background, this.selection, this.selectionHandleLeft, this.selectionHandleRight])
+        if(this.selectionExtent) {
+            this.selection.setAttribute("style", "display:null")
+            this.selection.setAttribute("x", this.selectionExtent[0][0])
+            this.selection.setAttribute("y", this.selectionExtent[0][1])
+            this.selection.setAttribute("width", this.selectionExtent[1][0] - this.selectionExtent[0][0])
+            this.selection.setAttribute("height", this.selectionExtent[1][1] - this.selectionExtent[0][1])
+
+            this.handleLeft.setAttribute("style", "display:null")
+            this.handleLeft.setAttribute("x", this.selectionExtent[0][0] - 3)
+            this.handleLeft.setAttribute("y", 0)
+            this.handleLeft.setAttribute("width", 6)
+            this.handleLeft.setAttribute("height", this.height)
+
+            this.handleRight.setAttribute("style", "display:null")
+            this.handleRight.setAttribute("x", this.selectionExtent[1][0] - 3)
+            this.handleRight.setAttribute("y", 0)
+            this.handleRight.setAttribute("width", 6)
+            this.handleRight.setAttribute("height", this.height)
+            if( this.selectionExtent[0][0] - this.selectionExtent[1][0] != 0) {
+                this.graph.zoom(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
+            }
         }
         else {
-            setChildren(this.container, [this.background, this.selection])
-            setChildren(this.el,[this.container])
+            this.selection.setAttribute("style","display:none")
+            this.handleRight.setAttribute("style","display:none")
+            this.handleLeft.setAttribute("style","display:none")
+            this.graph.zoom(0,this.width)
         }
-        graph.zoom(this.selectionX, this.selectionX + this.selectionWidth)
     }
 }
 
