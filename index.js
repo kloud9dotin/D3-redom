@@ -145,7 +145,7 @@ class LineChart {
         this.multiLine.update(lineData)
         let xtickformat = converScaleTicks(this.xScale.ticks())
         this.xTicks.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),xtickformat[i]]}.bind(this)))
-        this.x2Ticks.update(this.x2Scale.ticks().map(function(d){console.log(d);return [this.x2Scale(d),1900 + d.getYear()]}.bind(this)))
+        this.x2Ticks.update(this.x2Scale.ticks().map(function(d){return [this.x2Scale(d),1900 + d.getYear()]}.bind(this)))
         this.yTicks.update(this.yScale.ticks().map(function(d){return [this.yScale(d) ,d]}.bind(this)))
         setChildren(this.el, [this.legends, this.clippath, this.multiLine, this.xAxis, this.yAxis, this.brushRectangle, this.xAxis2])
 
@@ -382,11 +382,12 @@ graph.legends.update(listData)
 function converScaleTicks(data)  {
     let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     let prev = 0
+    usesMonth = false
     let temp
-    console.log(data[0].getYear(),data[0].getMonth)
     temp = data.map(function(k,i) {
         if (k.getYear() == prev) {
             prev = k.getYear()
+            usesMonth = true
             return months[k.getMonth()]
         }
         else {
@@ -394,5 +395,6 @@ function converScaleTicks(data)  {
             return 1900 + prev
         }
     })
+    if (usesMonth) temp[0] = months[data[0].getMonth()]
     return temp
 }
