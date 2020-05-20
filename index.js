@@ -383,26 +383,16 @@ function converScaleTicks(data)  {
     let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     let prev = 0
     let temp
-    if ( data[data.length - 1].getYear() - data[0].getYear() < 4){
-        temp = data.map(function(k,i) {
-            if( i == 0 || i == (data.length -1) ) {
-                prev =  k.getYear()
-                return 1900 + prev
-            }
-            console.log(prev)
-            if ( k.getYear() == prev) return months[k.getMonth()]    
-            else {
-                prev = k.getYear()
-                return (1900+k.getYear())
-            }
-        })
-        console.log(temp)
-    }
-    else {
-        temp = data.map(function(k){
-            return 1900 + k.getYear()
-        })
-
-    }
+    console.log(data[0].getYear(),data[0].getMonth)
+    temp = data.map(function(k,i) {
+        if (k.getYear() == prev) {
+            prev = k.getYear()
+            return months[k.getMonth()]
+        }
+        else {
+            prev = k.getYear()
+            return 1900 + prev
+        }
+    })
     return temp
 }
