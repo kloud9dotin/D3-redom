@@ -70,5 +70,6 @@ body {
 }
 
 .path-animate {
-  transition: d 0.25s ease-in;
+  stroke-width: 1.5px;
+  transition: d 0.25s cubic-bezier(0.65, 0, 0.35, 1);
 }

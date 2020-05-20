@@ -24,7 +24,7 @@ class XTicks {
     update(data) {
         this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
         this.line = svg("line", {style:"stroke:currentcolor;",y2:"6"}) 
-        this.text = svg("text", {style:"fill:currentcolor;",y:9, dy:"0.71em"},   data[1].getMonth()+1 + "/" + (1900 + data[1].getYear()))
+        this.text = svg("text", {style:"fill:currentcolor;",y:9, dy:"0.71em"}, data[1])
         setChildren(this.el, [this.line, this.text])
     }
 }
@@ -128,7 +128,7 @@ class LineChart {
             margin = this.margin()
         
         //Prepare scales and update SVG size
-        this.xScale.domain(d3.extent(dataset, function(d) { return Date.parse(d.date) }))
+        this.xScale.domain(d3.extent(dataset, function(d) { return Date.parse(d.date) })).tickFormat(d3.timeFormat("%b"))
         this.x2Scale.domain(d3.extent(dataset, function(d) { return Date.parse(d.date) }))
         let activeCatagories = categories.filter(function(d,i){if (visibility[i] == 1) return d}) //To find only active categories
         let yMax = d3.max(dataset, function(d){   // Highest value on Y axis of active categories
@@ -143,8 +143,9 @@ class LineChart {
         }.bind(this)).filter(function(d){if (d != null) return d})
         lineData = lineData
         this.multiLine.update(lineData)
-        this.xTicks.update(this.xScale.ticks().map(function(d){return [this.xScale(d),d]}.bind(this)))
-        this.x2Ticks.update(this.x2Scale.ticks().map(function(d){return [this.x2Scale(d),d]}.bind(this)))
+        let xtickformat = converScaleTicks(this.xScale.ticks())
+        this.xTicks.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),xtickformat[i]]}.bind(this)))
+        this.x2Ticks.update(this.x2Scale.ticks().map(function(d){console.log(d);return [this.x2Scale(d),1900 + d.getYear()]}.bind(this)))
         this.yTicks.update(this.yScale.ticks().map(function(d){return [this.yScale(d) ,d]}.bind(this)))
         setChildren(this.el, [this.legends, this.clippath, this.multiLine, this.xAxis, this.yAxis, this.brushRectangle, this.xAxis2])
 
@@ -180,7 +181,8 @@ class LineChart {
                     this.multiLine.update(lineData)
                 }
             }.bind(this) ,500)}
-        this.xTicks.update(this.xScale.ticks().map(function(d){return [this.xScale(d),d]}.bind(this)))
+        let xtickformat = converScaleTicks(this.xScale.ticks())
+        this.xTicks.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),xtickformat[i]]}.bind(this)))
     }
 }
 
@@ -197,7 +199,6 @@ class BrushRectangle {
         this.extent = [[0,0],[this.width,this.height]]
         this.selectionExtent = null
         let started = function(event) {
-            console.log(event.type)
             if (this.touchending && !event.touches) return;
             var type = event.target.getAttribute("data"),
                 mode  =  (type === "selection"? "drag" : "handle"),
@@ -220,7 +221,6 @@ class BrushRectangle {
                 else {
                     point0 = [event.clientX, event.clientY]
                 }
-            console.log(type)
             var point = point0
             if (type === "overlay") {
                 if (selection) moving = true;
@@ -260,7 +260,6 @@ class BrushRectangle {
                 if (event.type == "touchend" ) {
                     event.preventDefault()
                 }
-                console.log("ended")
                 event.stopImmediatePropagation();
                 this.overlay.removeEventListener("mousemove", moved, true)
                 this.overlay.removeEventListener("mouseup", ended, true)
@@ -291,7 +290,6 @@ class BrushRectangle {
                 var t;
                 dx = point[0] - point0[0];
                 dy = point[1] - point0[1];
-                console.log(mode)
                 switch (mode) {
                     case "drag": {
                       if (signX) dx = Math.max(W - w0, Math.min(E - e0, dx)), w1 = w0 + dx, e1 = e0 + dx;
@@ -380,3 +378,31 @@ let listData = []
             listData.push(i)
         }
 graph.legends.update(listData)
+
+function converScaleTicks(data)  {
+    let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    let prev = 0
+    let temp
+    if ( data[data.length - 1].getYear() - data[0].getYear() < 4){
+        temp = data.map(function(k,i) {
+            if( i == 0 || i == (data.length -1) ) {
+                prev =  k.getYear()
+                return 1900 + prev
+            }
+            console.log(prev)
+            if ( k.getYear() == prev) return months[k.getMonth()]    
+            else {
+                prev = k.getYear()
+                return (1900+k.getYear())
+            }
+        })
+        console.log(temp)
+    }
+    else {
+        temp = data.map(function(k){
+            return 1900 + k.getYear()
+        })
+
+    }
+    return temp
+}
