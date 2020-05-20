@@ -6,7 +6,7 @@ var visibility = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,
 
 class Line {
     constructor() {
-        this.el = svg("path", {style:"stroke-width:2"})
+        this.el = svg("path.path-animate", {style:"stroke-width:2"})
     }
     update(data) {
         this.el.setAttribute("d",data[0])
@@ -19,7 +19,7 @@ class XTicks {
     constructor() {
         this.line
         this.text
-        this.el = svg("g", {style:"opacity:1;"}) 
+        this.el = svg("g.animate", {style:"opacity:1;"}) 
     }
     update(data) {
         this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
@@ -33,7 +33,7 @@ class YTicks {
     constructor() {
         this.line
         this.text
-        this.el = svg("g", {style:"opacity:1;"}) 
+        this.el = svg("g.animate", {style:"opacity:1;"}) 
     }
     update(data) {
         this.el.setAttribute("transform", "translate(0," + data[0] + ")")
@@ -158,16 +158,28 @@ class LineChart {
         this.margin2({top: this.height() - 70, right: 20, bottom: 30, left: 30})
     }
     //To zoom and pan
-    zoom(lowerDomain,upperDomain) {
+    zoom(lowerDomain,upperDomain, UpdateLineInstantly) {
         var margin = this.margin()
         lowerDomain = this.x2Scale.invert(lowerDomain + margin.left)
         upperDomain = this.x2Scale.invert(upperDomain + margin.left)
         this.xScale.domain([lowerDomain, upperDomain])
-        let lineData = visibility.map(function(d,i){if(d == 1) {
-            return [d3.line().x(d => this.xScale(Date.parse(d.date))).y(d => this.yScale(d[categories[i]]))(dataset), colors[i]]
-        } else return null
-        }.bind(this)).filter(function(d){if (d != null) return d})
-        this.multiLine.update(lineData)
+        if (UpdateLineInstantly) {
+            let lineData = visibility.map(function(d,i){if(d == 1) {
+                return [d3.line().x(d => this.xScale(Date.parse(d.date))).y(d => this.yScale(d[categories[i]]))(dataset), colors[i]]
+            } else return null
+            }.bind(this)).filter(function(d){if (d != null) return d})
+            this.multiLine.update(lineData)
+        }
+        else {
+            setTimeout(function(lower = lowerDomain, upper = upperDomain){
+                if (lowerDomain == lower && upperDomain == upper) {
+                    let lineData = visibility.map(function(d,i){if(d == 1) {
+                        return [d3.line().x(d => this.xScale(Date.parse(d.date))).y(d => this.yScale(d[categories[i]]))(dataset), colors[i]]
+                    } else return null
+                    }.bind(this)).filter(function(d){if (d != null) return d})
+                    this.multiLine.update(lineData)
+                }
+            }.bind(this) ,1500)}
         this.xTicks.update(this.xScale.ticks().map(function(d){return [this.xScale(d),d]}.bind(this)))
     }
 }
@@ -257,7 +269,12 @@ class BrushRectangle {
                 this.el.removeEventListener("touchend", ended, true)
                 this.el.setAttribute("style", "pointer-events:all")
                 if(selection[0][0] - selection[1][0] == 0) this.selectionExtent = null
-                this.update()
+                if(this.selectionExtent) {
+                    this.graph.zoom(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]), 1)
+                }
+                else {
+                    this.graph.zoom(0,this.width, 1)
+                }
                 this.overlay.setAttribute("cursor", this.cursor["overlay"])
             }.bind(this)
 
@@ -342,13 +359,13 @@ class BrushRectangle {
             this.handleRight.setAttribute("y", 0)
             this.handleRight.setAttribute("width", 6)
             this.handleRight.setAttribute("height", this.height)
-            this.graph.zoom(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
+            this.graph.zoom(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]), 0)
         }
         else {
             this.selection.setAttribute("style","display:none")
             this.handleRight.setAttribute("style","display:none")
             this.handleLeft.setAttribute("style","display:none")
-            this.graph.zoom(0,this.width)
+            this.graph.zoom(0,this.width, 0)
         }
     }
 }
