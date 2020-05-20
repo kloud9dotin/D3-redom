@@ -179,7 +179,7 @@ class LineChart {
                     }.bind(this)).filter(function(d){if (d != null) return d})
                     this.multiLine.update(lineData)
                 }
-            }.bind(this) ,1500)}
+            }.bind(this) ,500)}
         this.xTicks.update(this.xScale.ticks().map(function(d){return [this.xScale(d),d]}.bind(this)))
     }
 }
