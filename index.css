@@ -62,9 +62,7 @@ body {
 
 .handle {
     opacity: 0;
+    z-index: 5;
 }
 
-.handle_e, .handle_w {
-  opacity: 0;
-}
 

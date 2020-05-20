@@ -178,16 +178,20 @@ class BrushRectangle {
         this.width = width
         this.height = height
         this.graph = graph
-        this.cursor = {overlay: "crosshair", selection:"move", handle_e:"ew-resize", handle_w:"ew-resize"}
-        this.signsX = {overlay: +1, selection: +1, handle_w: -1, handle_e: +1}
+        this.touchending
+        this.cursor = {overlay: "crosshair", selection:"move", n: "ns-resize", e: "ew-resize", s: "ns-resize", w: "ew-resize", nw: "nwse-resize", ne: "nesw-resize", se: "nwse-resize", sw: "nesw-resize"}
+        this.signsX = {overlay: +1, selection: +1, n: null, e: +1, s: null, w: -1, nw: -1, ne: +1, se: +1,sw: -1}
+        this.signsY = { overlay: +1, selection: +1, n: -1, e: null, s: +1, w: null, nw: -1, ne: -1, se: +1, sw: +1}
         this.extent = [[0,0],[this.width,this.height]]
         this.selectionExtent = null
         let started = function(event) {
-            var type = event.target.classList[0],
+            console.log(event.type)
+            if (this.touchending && !event.touches) return;
+            var type = event.target.getAttribute("data"),
                 mode  =  (type === "selection"? "drag" : "handle"),
                 dim = this.dim,
                 signX = dim === "Y" ? null : this.signsX[type],
-                signY = null,
+                signY = dim === "X" ? null : signsY[type],
                 extent = this.extent,
                 selection = this.selectionExtent,
                 W = extent[0][0], w0, w1,
@@ -197,9 +201,15 @@ class BrushRectangle {
                 dx = 0,
                 dy = 0,
                 moving,
-                point0 = [event.clientX, event.clientY],
-                point = point0
-            
+                point0
+                if (event.touches) {
+                    point0 = [event.changedTouches[0].clientX,event.changedTouches[0].clientY]
+                }
+                else {
+                    point0 = [event.clientX, event.clientY]
+                }
+            console.log(type)
+            var point = point0
             if (type === "overlay") {
                 if (selection) moving = true;
                 this.selectionExtent = selection = [
@@ -218,9 +228,14 @@ class BrushRectangle {
             s1 = s0;
             this.el.setAttribute("style", "pointer-events:none")
             this.overlay.setAttribute("cursor", this.cursor[type])
-
             var moved = function(event) {
-                let point1 = [event.clientX, event.clientY]
+                let point1
+                if (event.type == "touchmove") {
+                    point1 = [event.changedTouches[0].clientX,event.changedTouches[0].clientY]
+                }
+                else {
+                    point1 = [event.clientX, event.clientY]
+                }
                 point = point1
                 moving = true
                 event.preventDefault();
@@ -230,28 +245,36 @@ class BrushRectangle {
             }.bind(this)
 
             var ended = function(event) {
+                if (event.type == "touchend" ) {
+                    event.preventDefault()
+                }
+                console.log("ended")
                 event.stopImmediatePropagation();
-                event.view.removeEventListener("mousemove", moved, true)
-                event.view.removeEventListener("mouseup", ended, true)
+                this.overlay.removeEventListener("mousemove", moved, true)
+                this.overlay.removeEventListener("mouseup", ended, true)
+                this.overlay.removeEventListener("mouseleave", ended, true)
+                this.el.removeEventListener("touchmove", moved, true)
+                this.el.removeEventListener("touchend", ended, true)
                 this.el.setAttribute("style", "pointer-events:all")
                 if(selection[0][0] - selection[1][0] == 0) this.selectionExtent = null
-                this.update(0)
+                this.update()
                 this.overlay.setAttribute("cursor", this.cursor["overlay"])
             }.bind(this)
 
-            event.view.addEventListener("mousemove", moved, true)
-            event.view.addEventListener("mouseup", ended, true)
-            event.preventDefault()
+            this.overlay.addEventListener("mousemove", moved, true)
+            this.overlay.addEventListener("mouseup", ended, true)
+            this.overlay.addEventListener("mouseleave", ended, true)
+            this.el.addEventListener("touchmove", moved, true)
+            this.el.addEventListener("touchend", ended, true)
+            if (event.cancelable) event.preventDefault()
             event.stopImmediatePropagation()
             this.update()
-
-            
 
             function move() {
                 var t;
                 dx = point[0] - point0[0];
                 dy = point[1] - point0[1];
-
+                console.log(mode)
                 switch (mode) {
                     case "drag": {
                       if (signX) dx = Math.max(W - w0, Math.min(E - e0, dx)), w1 = w0 + dx, e1 = e0 + dx;
@@ -294,10 +317,10 @@ class BrushRectangle {
 
         }.bind(this)
 
-        this.overlay = svg("rect.overlay", {x:0,y:0,width:this.width,height:this.height,cursor:this.cursor["overlay"],fill:"#E6E7E8",style:"pointer-events:all",onmousedown: started})
-        this.selection = svg("rect.selection", {height:40,cursor:this.cursor["selection"],fill:"#fff","fill-opacity":0.3,stroke:"#fff",style:"display:none",onmousedown: started})
-        this.handleLeft = svg("rect.handle_w", {height:40,cursor:this.cursor["handle_w"],fill:"",style:"display:none",onmousedown: started})
-        this.handleRight = svg("rect.handle_e", {height:40,cursor:this.cursor["handle_e"],fill:"",style:"display:none",onmousedown: started})
+        this.overlay = svg("rect", {data:"overlay",x:0,y:0,width:this.width,height:this.height,cursor:this.cursor["overlay"],fill:"#E6E7E8",style:"pointer-events:all",onmousedown: started, ontouchstart: started})
+        this.selection = svg("rect", {data:"selection",height:40,cursor:this.cursor["selection"],fill:"#fff","fill-opacity":0.3,stroke:"#fff",style:"display:none",onmousedown: started, ontouchstart: started})
+        this.handleLeft = svg("rect.handle", {data:"w",height:40,cursor:this.cursor["w"],fill:"",style:"display:none",onmousedown: started, ontouchstart: started})
+        this.handleRight = svg("rect.handle", {data:"e",height:40,cursor:this.cursor["e"],fill:"",style:"display:none",onmousedown: started, ontouchstart: started})
         this.el = svg("g",{transform:"translate("+ dx +"," + dy +")",style:"pointer-events:all"}, this.overlay, this.selection, this.handleRight, this.handleLeft)
     }
     update() {
@@ -319,9 +342,7 @@ class BrushRectangle {
             this.handleRight.setAttribute("y", 0)
             this.handleRight.setAttribute("width", 6)
             this.handleRight.setAttribute("height", this.height)
-            if( this.selectionExtent[0][0] - this.selectionExtent[1][0] != 0) {
-                this.graph.zoom(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
-            }
+            this.graph.zoom(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
         }
         else {
             this.selection.setAttribute("style","display:none")
