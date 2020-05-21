@@ -1,0 +1,21 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+body {
+    font: 10px sans-serif;
+}
+
+.pathAnimate {
+    transition: all 1s linear;
+}
+
+.lineAnimate {
+    transition: transform 1s linear;
+}
+
+.notransition {
+    transition: none !important;
+}
