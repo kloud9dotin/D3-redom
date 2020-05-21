@@ -118,7 +118,7 @@ class LineChart {
         this.xAxis = new Axis("x", xAxisOffset, (margin.left + 0.5), (width - margin.right - 0.5))
         this.x2Axis = new Axis("x", (height - margin.bottom +70), (margin.left + 0.5), (width - margin.right - 0.5))
         this.yAxis = new Axis("y", yAxisOffset, (height - margin.bottom+ 0.5), (margin.top - 0.5))
-        this.clipPath = new ClipPath(this.margin().left, this.margin().top, this.width()-this.margin().left-this.margin().right-50, this.height()-this.margin().top-this.margin().bottom)
+        this.clipPath = new ClipPath(this.margin().left, this.margin().top, this.width()-this.margin().left-this.margin().right, this.height()-this.margin().top-this.margin().bottom)
         this.el = svg("svg", {id:"graph", width:960, height:500})
         setChildren(this.el, [this.clipPath, this.multiLine, this.xAxis, this.yAxis, this.x2Axis])
     }
