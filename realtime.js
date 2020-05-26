@@ -5,7 +5,7 @@ dataset = []
 /* Charting Components */
 class Line {
     constructor() {
-        this.el = svg("path.", {style:"stroke-width:2;fill:none;stroke:black;"})
+        this.el = svg("path", {style:"stroke-width:2;fill:none;stroke:black;"})
     }
     update(data) {
         this.el.setAttribute("d",data)
@@ -16,13 +16,12 @@ class Line {
 class XTicks {
     constructor() {
         this.line, this.text 
-        this.lastValue = null, this.stepSize = 0, this.lastStep
+        this.lastValue = null, this.stepSize = 0, this.lastStep = 0
         this.el = svg("g.pathAnimate", {style:"opacity:1;"}) 
     }
     update(data) {
         if(data[1] != this.lastValue && this.lastValue != null) {
             this.el.classList.add("notransition")
-            console.log(data[0] + 14)
             this.el.setAttribute("transform", "translate(" + (data[0] + this.stepSize) + ",0)")
             this.lastStep = data[0]
         }
@@ -74,8 +73,8 @@ class Axis {
 }
 
 class ClipPath {
-    constructor(x, y, width, height) {
-        this.el = svg("defs", svg("clipPath", {id:"clip"}, svg("rect",{x:x, y:y, width:width, height:height})))
+    constructor(id, x, y, width, height) {
+        this.el = svg("defs", svg("clipPath", {id:id}, svg("rect",{x:x, y:y, width:width, height:height})))
     }
 }
 
@@ -113,46 +112,42 @@ class LineChart {
         this.x2Scale = d3.scaleTime().range([margin.left, width - margin.right])
         this.yScale = d3.scaleLinear().range([this.height() - this.margin().bottom, this.margin().top])
         //import components for graph
-        this.multiLine = list(svg("g.lineAnimate"), Line)
+        this.multiLine = list(svg("g.pathAnimate"), Line)
         this.xAxis = new Axis("x", xAxisOffset, (margin.left + 0.5), (width - margin.right - 0.5))
         this.x2Axis = new Axis("x", (height - margin.bottom +70), (margin.left + 0.5), (width - margin.right - 0.5))
         this.yAxis = new Axis("y", yAxisOffset, (height - margin.bottom+ 0.5), (margin.top - 0.5))
-        this.clipPath = new ClipPath(this.margin().left-30, this.margin().top-10, this.width()-this.margin().left-this.margin().right, this.height()-this.margin().top)
+        this.clipPath = new ClipPath("lineClip", this.margin().left, this.margin().top, this.width()-this.margin().left-this.margin().right, this.height()-this.margin().top-this.margin().bottom)
+        this.xAxisClip = new ClipPath("axisClip", this.margin().left, this.height()-this.margin().bottom, this.width()-this.margin().left-this.margin().right, this.margin().bottom)
+        this.conatiner = svg("g", this.multiLine)
+        this.xAxisConatiner = svg("g", this.xAxis, this.x2Axis)
         this.el = svg("svg", {id:"graph", width:960, height:500})
-        setChildren(this.el, [this.clipPath, this.multiLine, this.xAxis, this.yAxis, this.x2Axis])
-        this.el.setAttribute("clip-path", 'url(#clip)')
+        setChildren(this.el, [this.clipPath, this.xAxisClip,this.conatiner, this.xAxisConatiner, this.yAxis,])
+        this.conatiner.setAttribute("clip-path", 'url(#lineClip)')
+        this.xAxisConatiner.setAttribute("clip-path", 'url(#axisClip)')
     }
     update() {
-        let xRange = dataset[dataset.length-1][0] - dataset[0][0]
         let length = dataset.length
-        let yMax = d3.max(dataset, function(d){return d[1]})
+        //let yMax = d3.max(dataset, function(d){return d[1]})
         if(this.firstUpdate){
-            this.firstupdate = false
-            this.xScale.domain([dataset[0][0]-(50000 - xRange), dataset[length-1][0]])
+            this.firstUpdate = false
+            this.xScale.domain([dataset[0][0]-51000, dataset[length-1][0]-1000])
             this.x2Scale.domain(this.xScale.domain())
-            this.yScale.domain([0, yMax])
+            this.yScale.domain([0, 100])
         }
         this.multiLine.el.classList.add("notransition")
-        this.multiLine.el.setAttribute("transform","translate(0,0)")
+        this.multiLine.el.removeAttribute("transform","translate(0,0)")
         //Prepare scales and update SVG size
         this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
         this.multiLine.el.removeAttribute("transform")
-        if(xRange < 50000) {
-            this.xScale.domain([dataset[0][0]-(50000 - xRange), dataset[length-1][0]])
-            this.x2Scale.domain(this.xScale.domain())
-        }
-        else {
-            this.xScale.domain([dataset[length-1][0]-50000, dataset[length-1][0]])
-            this.x2Scale.domain(this.xScale.domain())
-        }
-        this.yScale.domain([0, yMax])
-        if (length > 1) {
-            setTimeout(function () {
-            this.multiLine.el.classList.remove("notransition")
-           this.multiLine.el.setAttribute("transform", "translate(" + -(this.xScale(dataset[1][0]) - this.xScale(dataset[0][0])) + ",0)")
-            }.bind(this), 1)
-            
-         }
+        let xDomain = this.xScale.domain()
+        this.xScale.domain([xDomain[0].getTime()+1000, xDomain[1].getTime()+1000])
+        this.x2Scale.domain([xDomain[0].getTime()+1000, xDomain[1].getTime()+1000])
+        this.yScale.domain([0, 100])
+        setTimeout(function () {
+        this.multiLine.el.classList.remove("notransition")
+        let oneSecDisplacement = this.xScale(1000) - this.xScale(0)
+        this.multiLine.el.setAttribute("transform", "translate(" + -(oneSecDisplacement) + ",0)")
+        }.bind(this), 1)
         this.xAxis.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),d.toTimeString().split(' ')[0]]}.bind(this)))
         this.x2Axis.update(this.x2Scale.ticks().map(function(d){return [this.x2Scale(d),d.toTimeString().split(' ')[0]]}.bind(this)))
         this.yAxis.update(this.yScale.ticks().map(function(d){return [this.yScale(d) ,d]}.bind(this)))
@@ -170,6 +165,6 @@ mount(document.body, total);
 setInterval( function() {
     dataset.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1)])
     graph.update()
-    if(dataset.length >= 51) dataset.shift()
+    if(dataset.length >= 52) dataset.shift()
 }, 1000)
 /* End of Data Generator */
