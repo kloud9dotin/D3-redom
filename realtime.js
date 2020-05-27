@@ -25,14 +25,14 @@ class XTicks {
             this.el.setAttribute("transform", "translate(" + (data[0] + this.stepSize) + ",0)")
             document.body.offsetHeight
             this.el.classList.remove("notransition")
+            this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
             this.lastStep = data[0]
         }
         else {
             this.stepSize = this.lastStep - data[0]
             this.lastStep = data[0]
-            this.lastValue = data[1]
         }
-            this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
+        this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
         this.lastValue = data[1]
         this.line = svg("line", {style:"stroke:currentcolor;",y2:"6"}) 
         this.text = svg("text", {style:"fill:currentcolor;",y:9, dy:"0.71em"}, data[1])
@@ -127,7 +127,6 @@ class LineChart {
         this.xAxisConatiner.setAttribute("clip-path", 'url(#axisClip)')
     }
     update() {
-        
         let length = dataset.length
         if(length == 0 ) return
         //let yMax = d3.max(dataset, function(d){return d[1]})
@@ -136,22 +135,23 @@ class LineChart {
             this.xScale.domain([dataset[0][0]-51000, dataset[length-1][0]-1000])
             this.x2Scale.domain(this.xScale.domain())
             this.yScale.domain([0, 100])
+            this.lastDataTime = dataset[length-1][0]
         }
         this.multiLine.el.classList.add("notransition")
         this.multiLine.el.removeAttribute("transform","translate(0,0)")
         //Prepare scales and update SVG size
         this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
         this.multiLine.el.removeAttribute("transform")
-        let xDomain = this.x2Scale.domain()
-        this.x2Scale.domain([xDomain[0].getTime()+1000, xDomain[1].getTime()+1000])
+        this.x2Scale.domain([dataset[length-1][0] - 50000, dataset[length-1][0]])
         let lowerDomain = this.x2Scale.invert(this.lowerRange + this.margin().left)
         let upperDomain = this.x2Scale.invert(this.upperRange + this.margin().left)
         this.xScale.domain([lowerDomain, upperDomain])
         this.yScale.domain([0, 100])
         document.body.offsetHeight
         this.multiLine.el.classList.remove("notransition")
-        let oneSecDisplacement = this.xScale(1000) - this.xScale(0)
-        this.multiLine.el.setAttribute("transform", "translate(" + -(oneSecDisplacement) + ",0)")
+        let updateDisplacement = this.xScale(dataset[length-1][0]) - this.xScale(this.lastDataTime)
+        this.lastDataTime = dataset[length-1][0]
+        this.multiLine.el.setAttribute("transform", "translate(" + -(updateDisplacement) + ",0)")
         this.xAxis.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),d.toTimeString().split(' ')[0]]}.bind(this)))
         this.x2Axis.update(this.x2Scale.ticks().map(function(d){return [this.x2Scale(d),d.toTimeString().split(' ')[0]]}.bind(this)))
         this.yAxis.update(this.yScale.ticks().map(function(d){return [this.yScale(d) ,d]}.bind(this)))
@@ -369,10 +369,12 @@ let total = el("div", graph)
 
 mount(document.body, total);
 
+var updateInterval = 1000
+
 var lastUpdateTime = 0
 function updateGraph() {
     if(lastUpdateTime != 0) {
-        if(Math.round((new Date()).getTime()) - lastUpdateTime > 1000) {
+        if(Math.round((new Date()).getTime()) - lastUpdateTime > updateInterval) {
             graph.update()
             lastUpdateTime =  Math.round((new Date()).getTime()) 
         }
