@@ -163,12 +163,12 @@ class LineChart {
         upperDomain = this.x2Scale.invert(upperDomain + margin.left)
         this.xScale.domain([lowerDomain, upperDomain])
         if (UpdateLineInstantly) {
-            this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
+           // this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
         }
         else {
             setTimeout(function(lower = lowerDomain, upper = upperDomain){
                 if (lowerDomain == lower && upperDomain == upper) {
-                    this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
+                    //this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
                 }
             }.bind(this) ,500)}
         this.xAxis.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),d.toTimeString().split(' ')[0]]}.bind(this)))

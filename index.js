@@ -199,6 +199,7 @@ class BrushRectangle {
         this.extent = [[0,0],[this.width,this.height]]
         this.selectionExtent = null
         let started = function(event) {
+            console.log(event.type)
             if (this.touchending && !event.touches) return;
             var type = event.target.getAttribute("data"),
                 mode  =  (type === "selection"? "drag" : "handle"),
