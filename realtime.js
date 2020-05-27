@@ -163,7 +163,7 @@ class LineChart {
         upperDomain = this.x2Scale.invert(upperDomain + margin.left)
         this.xScale.domain([lowerDomain, upperDomain])
         if (UpdateLineInstantly) {
-           // this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
+           //this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
         }
         else {
             setTimeout(function(lower = lowerDomain, upper = upperDomain){
@@ -188,6 +188,7 @@ class BrushRectangle {
         this.extent = [[0,0],[this.width,this.height]]
         this.selectionExtent = null
         let started = function(event) {
+            console.log(event.type)
             if (this.touchending && !event.touches) return;
             var type = event.target.getAttribute("data"),
                 mode  =  (type === "selection"? "drag" : "handle"),
@@ -239,7 +240,7 @@ class BrushRectangle {
                 }
                 point = point1
                 moving = true
-                event.preventDefault();
+                if (event.cancelable) event.preventDefault();
                 event.stopImmediatePropagation();
                 let obj = this
                 move.bind(this)()
@@ -321,11 +322,15 @@ class BrushRectangle {
 
         }.bind(this)
 
-        this.overlay = svg("rect", {data:"overlay",x:0,y:0,width:this.width,height:this.height,cursor:this.cursor["overlay"],fill:"#E6E7E8",style:"pointer-events:all",onmousedown: started, ontouchstart: started})
-        this.selection = svg("rect", {data:"selection",height:40,cursor:this.cursor["selection"],fill:"#fff","fill-opacity":0.3,stroke:"#fff",style:"display:none",onmousedown: started, ontouchstart: started})
-        this.handleLeft = svg("rect.handle", {data:"w",height:40,cursor:this.cursor["w"],fill:"",style:"display:none",onmousedown: started, ontouchstart: started})
-        this.handleRight = svg("rect.handle", {data:"e",height:40,cursor:this.cursor["e"],fill:"",style:"display:none",onmousedown: started, ontouchstart: started})
+        this.overlay = svg("rect", {data:"overlay",x:0,y:0,width:this.width,height:this.height,cursor:this.cursor["overlay"],fill:"#E6E7E8",style:"pointer-events:all",onmousedown: started})
+        this.selection = svg("rect", {data:"selection",height:40,cursor:this.cursor["selection"],fill:"#fff","fill-opacity":0.3,stroke:"#fff",style:"display:none",onmousedown: started})
+        this.handleLeft = svg("rect.handle", {data:"w",height:40,cursor:this.cursor["w"],fill:"",style:"display:none",onmousedown: started})
+        this.handleRight = svg("rect.handle", {data:"e",height:40,cursor:this.cursor["e"],fill:"",style:"display:none",onmousedown: started})
         this.el = svg("g",{transform:"translate("+ dx +"," + dy +")",style:"pointer-events:all"}, this.overlay, this.selection, this.handleRight, this.handleLeft)
+        this.overlay.addEventListener("touchstart", started, {passive: true})
+        this.selection.addEventListener("touchstart", started, {passive: true})
+        this.handleLeft.addEventListener("touchstart", started, {passive: true})
+        this.handleRight.addEventListener("touchstart", started, {passive: true})
     }
     update() {
         if(this.selectionExtent) {
