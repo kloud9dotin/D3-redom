@@ -373,8 +373,8 @@ var lastUpdateTime = 0
 function updateGraph() {
     if(lastUpdateTime != 0) {
         if(Math.round((new Date()).getTime()) - lastUpdateTime > 1000) {
-            lastUpdateTime =  Math.round((new Date()).getTime()) 
             graph.update()
+            lastUpdateTime =  Math.round((new Date()).getTime()) 
         }
     }
     else{
@@ -387,7 +387,6 @@ function updateGraph() {
 /* Random Data Generator */
 setInterval( function() {
     dataset.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1)])
-    if(dataset.length > 51) dataset.shift()
 }, 1000)
 /* End of Data Generator */
 requestAnimationFrame(updateGraph)
