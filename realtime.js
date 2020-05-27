@@ -127,7 +127,9 @@ class LineChart {
         this.xAxisConatiner.setAttribute("clip-path", 'url(#axisClip)')
     }
     update() {
+        
         let length = dataset.length
+        if(length == 0 ) return
         //let yMax = d3.max(dataset, function(d){return d[1]})
         if(this.firstUpdate){
             this.firstUpdate = false
@@ -367,10 +369,25 @@ let total = el("div", graph)
 
 mount(document.body, total);
 
+var lastUpdateTime = 0
+function updateGraph() {
+    if(lastUpdateTime != 0) {
+        if(Math.round((new Date()).getTime()) - lastUpdateTime > 1000) {
+            lastUpdateTime =  Math.round((new Date()).getTime()) 
+            graph.update()
+        }
+    }
+    else{
+        lastUpdateTime =  Math.round((new Date()).getTime()) 
+    }
+    
+    requestAnimationFrame(updateGraph)
+}
+
 /* Random Data Generator */
 setInterval( function() {
     dataset.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1)])
-    graph.update()
-    if(dataset.length >= 52) dataset.shift()
+    if(dataset.length > 51) dataset.shift()
 }, 1000)
 /* End of Data Generator */
+requestAnimationFrame(updateGraph)
