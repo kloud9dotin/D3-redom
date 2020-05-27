@@ -19,3 +19,13 @@ body {
 .notransition {
     transition: none !important;
 }
+
+.brush .selection {
+    fill: #FFF;
+    shape-rendering: crispEdges;
+  }
+  
+  .handle {
+      opacity: 0;
+      z-index: 5;
+  }
