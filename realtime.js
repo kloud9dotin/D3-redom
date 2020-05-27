@@ -86,7 +86,7 @@ class LineChart {
             height2 = 40,
             xAxisOffset = 400,
             yAxisOffset = 50
-        this.firstUpdate = true
+        this.firstUpdate = true 
         this.height = function(value) {
             if (!arguments.length) return height
                 height = value
@@ -121,6 +121,7 @@ class LineChart {
         this.xAxisConatiner = svg("g", this.xAxis, this.x2Axis)
         this.el = svg("svg", {id:"graph", width:960, height:500})
         this.brushRectangle = new BrushRectangle("X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, 50, this)
+        this.lowerRange = 0, this.upperRange = this.xScale.range()[1] - this.xScale.range()[0]
         setChildren(this.el, [this.clipPath, this.xAxisClip,this.conatiner, this.xAxisConatiner, this.brushRectangle,this.yAxis,])
         this.conatiner.setAttribute("clip-path", 'url(#lineClip)')
         this.xAxisConatiner.setAttribute("clip-path", 'url(#axisClip)')
@@ -139,9 +140,11 @@ class LineChart {
         //Prepare scales and update SVG size
         this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
         this.multiLine.el.removeAttribute("transform")
-        let xDomain = this.xScale.domain()
-        this.xScale.domain([xDomain[0].getTime()+1000, xDomain[1].getTime()+1000])
+        let xDomain = this.x2Scale.domain()
         this.x2Scale.domain([xDomain[0].getTime()+1000, xDomain[1].getTime()+1000])
+        let lowerDomain = this.x2Scale.invert(this.lowerRange + this.margin().left)
+        let upperDomain = this.x2Scale.invert(this.upperRange + this.margin().left)
+        this.xScale.domain([lowerDomain, upperDomain])
         this.yScale.domain([0, 100])
         document.body.offsetHeight
         this.multiLine.el.classList.remove("notransition")
@@ -152,8 +155,23 @@ class LineChart {
         this.yAxis.update(this.yScale.ticks().map(function(d){return [this.yScale(d) ,d]}.bind(this)))
 
     }
-    zoom(lower,upper) {
-
+    zoom(lowerDomain,upperDomain, UpdateLineInstantly) {
+        this.lowerRange = lowerDomain
+        this.upperRange = upperDomain
+        var margin = this.margin()
+        lowerDomain = this.x2Scale.invert(lowerDomain + margin.left)
+        upperDomain = this.x2Scale.invert(upperDomain + margin.left)
+        this.xScale.domain([lowerDomain, upperDomain])
+        if (UpdateLineInstantly) {
+            this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
+        }
+        else {
+            setTimeout(function(lower = lowerDomain, upper = upperDomain){
+                if (lowerDomain == lower && upperDomain == upper) {
+                    this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
+                }
+            }.bind(this) ,500)}
+        this.xAxis.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),d.toTimeString().split(' ')[0]]}.bind(this)))
     }
 }
 
@@ -240,10 +258,10 @@ class BrushRectangle {
                 this.el.setAttribute("style", "pointer-events:all")
                 if(selection[0][0] - selection[1][0] == 0) this.selectionExtent = null
                 if(this.selectionExtent) {
-                    this.graph.zoom(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
+                    this.graph.zoom(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]), 1)
                 }
                 else {
-                    this.graph.zoom(0,this.width)
+                    this.graph.zoom(0,this.width, 1)
                 }
                 this.overlay.setAttribute("cursor", this.cursor["overlay"])
             }.bind(this)
@@ -328,13 +346,13 @@ class BrushRectangle {
             this.handleRight.setAttribute("y", 0)
             this.handleRight.setAttribute("width", 6)
             this.handleRight.setAttribute("height", this.height)
-            this.graph.zoom(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
+            this.graph.zoom(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]), 0)
         }
         else {
             this.selection.setAttribute("style","display:none")
             this.handleRight.setAttribute("style","display:none")
             this.handleLeft.setAttribute("style","display:none")
-            this.graph.zoom(0,this.width)
+            this.graph.zoom(0,this.width, 0)
         }
     }
 }

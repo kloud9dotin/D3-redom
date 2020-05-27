@@ -12,10 +12,6 @@ body {
     transition: all 1s linear;
 }
 
-.lineAnimate {
-    transition: all 1s linear;
-}
-
 .notransition {
     transition: none !important;
 }
