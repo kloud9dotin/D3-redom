@@ -20,19 +20,15 @@ class XTicks {
         this.el = svg("g.pathAnimate", {style:"opacity:1;"}) 
     }
     update(data) {
+        this.stepSize = data[2]
         if(data[1] != this.lastValue && this.lastValue != null) {
             this.el.classList.add("notransition")
             this.el.setAttribute("transform", "translate(" + (data[0] + this.stepSize) + ",0)")
             document.body.offsetHeight
             this.el.classList.remove("notransition")
-            this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
-            this.lastStep = data[0]
-        }
-        else {
-            this.stepSize = this.lastStep - data[0]
-            this.lastStep = data[0]
         }
         this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
+        this.lastStep = data[0]
         this.lastValue = data[1]
         this.line = svg("line", {style:"stroke:currentcolor;",y2:"6"}) 
         this.text = svg("text", {style:"fill:currentcolor;",y:9, dy:"0.71em"}, data[1])
@@ -149,11 +145,11 @@ class LineChart {
         this.yScale.domain([0, 100])
         document.body.offsetHeight
         this.multiLine.el.classList.remove("notransition")
-        let updateDisplacement = this.xScale(dataset[length-1][0]) - this.xScale(this.lastDataTime)
+        var updateDisplacement = this.xScale(dataset[length-1][0]) - this.xScale(this.lastDataTime)
         this.lastDataTime = dataset[length-1][0]
         this.multiLine.el.setAttribute("transform", "translate(" + -(updateDisplacement) + ",0)")
-        this.xAxis.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),d.toTimeString().split(' ')[0]]}.bind(this)))
-        this.x2Axis.update(this.x2Scale.ticks().map(function(d){return [this.x2Scale(d),d.toTimeString().split(' ')[0]]}.bind(this)))
+        this.xAxis.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),d.toTimeString().split(' ')[0], updateDisplacement]}.bind(this)))
+        this.x2Axis.update(this.x2Scale.ticks().map(function(d){return [this.x2Scale(d),d.toTimeString().split(' ')[0], updateDisplacement]}.bind(this)))
         this.yAxis.update(this.yScale.ticks().map(function(d){return [this.yScale(d) ,d]}.bind(this)))
 
     }
