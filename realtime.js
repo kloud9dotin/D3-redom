@@ -74,7 +74,7 @@ class ClipPath {
 }
 
 class LineChart {
-    constructor() {
+    constructor(refreshPeriod) {
         var margin = {top: 20, right: 200, bottom: 100, left: 50},
             margin2 = {top: 230, right: 20, bottom: 30, left: 30},
             width = 960,
@@ -122,7 +122,7 @@ class LineChart {
         this.conatiner = svg("g", this.multiLine)
         this.xAxisConatiner = svg("g", this.xAxis, this.selectionAxis)
         this.el = svg("svg", {id:"graph", width:960, height:500})
-        this.selectionRectangle = new SelectionRectangle("X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, 50, this.onChildEvent("zoom"))
+        this.selectionRectangle = new SelectionRectangle("X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, 50, this.onChildEvent.bind(this)/*this.onChildEvent("zoom")*/)
 
         //set children to the main component 
         setChildren(this.el, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.selectionRectangle, this.yAxis])
@@ -134,7 +134,6 @@ class LineChart {
     update() {
         let length = dataset.length
         if(length == 0 ) return
-
 
         //set scales if first update
         if(this.firstUpdate){
@@ -170,17 +169,18 @@ class LineChart {
         this.selectionAxis.update(this.selectionScale.ticks().map(function(d){return [this.selectionScale(d),d.toTimeString().split(' ')[0], selectionScaleDisplacement]}.bind(this)))
         this.yAxis.update(this.yScale.ticks().map(function(d){return [this.yScale(d) ,d]}.bind(this)))
     }
-    onChildEvent(event) {
-        switch(event) {
+    onChildEvent(type, data) {
+        switch(type) {
             case "zoom":
-                return (lowerDomain, upperDomain) => {
+                this.lowerRange = data[0]
+                this.upperRange = data[1]
+                this.update()
+                break
+                /* return (lowerDomain, upperDomain) => {
                     this.lowerRange = lowerDomain
                     this.upperRange = upperDomain
-                    var margin = this.margin()
-                    lowerDomain = this.selectionScale.invert(lowerDomain + margin.left)
-                    upperDomain = this.selectionScale.invert(upperDomain + margin.left)
                     this.update()
-                }
+                } */
         }
     }
 }
@@ -268,12 +268,15 @@ class SelectionRectangle {
                 this.el.setAttribute("style", "pointer-events:all")
                 if(selection[0][0] - selection[1][0] == 0) this.selectionExtent = null
                 if(this.selectionExtent) {
-                    this.notifyParent(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
+                    this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0])])
+                    //this.notifyParent(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
                 }
                 else {
-                    this.notifyParent(0,this.width)
+                    this.notifyParent("zoom",[0,this.width])
+                    //this.notifyParent(0,this.width)
                 }
                 this.overlay.setAttribute("cursor", this.cursor["overlay"])
+                this.update()
             }.bind(this)
 
             this.overlay.addEventListener("mousemove", moved, true)
@@ -360,13 +363,15 @@ class SelectionRectangle {
             this.handleRight.setAttribute("y", 0)
             this.handleRight.setAttribute("width", 6)
             this.handleRight.setAttribute("height", this.height)
-            this.notifyParent(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
+            this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0])])
+            //this.notifyParent(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
         }
         else {
             this.selection.setAttribute("style","display:none")
             this.handleRight.setAttribute("style","display:none")
             this.handleLeft.setAttribute("style","display:none")
-            this.notifyParent(0,this.width)
+            this.notifyParent("zoom",[0,this.width])
+            //this.notifyParent(0,this.width)
         }
     }
 }
