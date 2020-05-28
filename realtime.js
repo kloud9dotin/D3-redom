@@ -17,15 +17,15 @@ class XTicks {
     constructor() {
         this.line, this.text 
         this.lastValue = null, this.stepSize = 0, this.lastStep = 0
-        this.el = svg("g.pathAnimate", {style:"opacity:1;"}) 
+        this.el = svg("g", {style:"transition: all 1s linear"}) 
     }
     update(data) {
         this.stepSize = data[2]
         if(data[1] != this.lastValue && this.lastValue != null) {
-            this.el.classList.add("notransition")
+            this.el.style = "transition: none"
             this.el.setAttribute("transform", "translate(" + (data[0] + this.stepSize) + ",0)")
             document.body.offsetHeight
-            this.el.classList.remove("notransition")
+            this.el.style = "transition: all 1s linear"
         }
         this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
         this.lastStep = data[0]
@@ -113,7 +113,7 @@ class LineChart {
         this.yScale = d3.scaleLinear().range([this.height() - this.margin().bottom, this.margin().top])
 
         //import components for graph
-        this.multiLine = list(svg("g.pathAnimate"), Line)
+        this.multiLine = list(svg("g", {style:"transition: all 1s linear"}), Line)
         this.xAxis = new Axis("x", xAxisOffset, (margin.left + 0.5), (width - margin.right - 0.5))
         this.selectionAxis = new Axis("x", (height - margin.bottom +70), (margin.left + 0.5), (width - margin.right - 0.5))
         this.yAxis = new Axis("y", yAxisOffset, (height - margin.bottom+ 0.5), (margin.top - 0.5))
@@ -145,7 +145,7 @@ class LineChart {
         }
 
         //remove any transforms
-        this.multiLine.el.classList.add("notransition")
+        this.multiLine.el.style = "transition: none"
         this.multiLine.el.removeAttribute("transform","translate(0,0)")
 
         //Update line
@@ -160,7 +160,7 @@ class LineChart {
 
         //set up transistions and update axis
         document.body.offsetHeight
-        this.multiLine.el.classList.remove("notransition")
+        this.multiLine.el.style = "transition: all 1s linear"
         var updateDisplacement = this.xScale(dataset[length-1][0]) - this.xScale(this.lastDataTime)
         var selectionScaleDisplacement = this.selectionScale(dataset[length-1][0]) - this.selectionScale(this.lastDataTime)
         this.lastDataTime = dataset[length-1][0]
@@ -176,11 +176,7 @@ class LineChart {
                 this.upperRange = data[1]
                 this.update()
                 break
-                /* return (lowerDomain, upperDomain) => {
-                    this.lowerRange = lowerDomain
-                    this.upperRange = upperDomain
-                    this.update()
-                } */
+                
         }
     }
 }
@@ -269,11 +265,9 @@ class SelectionRectangle {
                 if(selection[0][0] - selection[1][0] == 0) this.selectionExtent = null
                 if(this.selectionExtent) {
                     this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0])])
-                    //this.notifyParent(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
                 }
                 else {
                     this.notifyParent("zoom",[0,this.width])
-                    //this.notifyParent(0,this.width)
                 }
                 this.overlay.setAttribute("cursor", this.cursor["overlay"])
                 this.update()
@@ -337,7 +331,7 @@ class SelectionRectangle {
         this.overlay = svg("rect", {data:"overlay",x:0,y:0,width:this.width,height:this.height,cursor:this.cursor["overlay"],fill:"#E6E7E8",style:"pointer-events:all",onmousedown: started})
         this.selection = svg("rect", {data:"selection",height:40,cursor:this.cursor["selection"],fill:"#fff","fill-opacity":0.3,stroke:"#fff",style:"display:none",onmousedown: started})
         this.handleLeft = svg("rect.handle", {data:"w",height:40,cursor:this.cursor["w"],fill:"",style:"display:none",onmousedown: started})
-        this.handleRight = svg("rect.handle", {data:"e",height:40,cursor:this.cursor["e"],fill:"",style:"display:none",onmousedown: started})
+        this.handleRight = svg("rect.handle", {data:"e",height:40,cursor:this.cursor["e"],fill:"",style:"display:none;",onmousedown: started})
         this.el = svg("g",{transform:"translate("+ dx +"," + dy +")",style:"pointer-events:all"}, this.overlay, this.selection, this.handleRight, this.handleLeft)
         this.overlay.addEventListener("touchstart", started, {passive: true})
         this.selection.addEventListener("touchstart", started, {passive: true})
@@ -352,26 +346,24 @@ class SelectionRectangle {
             this.selection.setAttribute("width", this.selectionExtent[1][0] - this.selectionExtent[0][0])
             this.selection.setAttribute("height", this.selectionExtent[1][1] - this.selectionExtent[0][1])
 
-            this.handleLeft.setAttribute("style", "display:null")
+            this.handleLeft.setAttribute("style", "display:null;opacity:0;")
             this.handleLeft.setAttribute("x", this.selectionExtent[0][0] - 3)
             this.handleLeft.setAttribute("y", 0)
             this.handleLeft.setAttribute("width", 6)
             this.handleLeft.setAttribute("height", this.height)
 
-            this.handleRight.setAttribute("style", "display:null")
+            this.handleRight.setAttribute("style", "display:null;opacity:0;")
             this.handleRight.setAttribute("x", this.selectionExtent[1][0] - 3)
             this.handleRight.setAttribute("y", 0)
             this.handleRight.setAttribute("width", 6)
             this.handleRight.setAttribute("height", this.height)
             this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0])])
-            //this.notifyParent(this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]))
         }
         else {
             this.selection.setAttribute("style","display:none")
             this.handleRight.setAttribute("style","display:none")
             this.handleLeft.setAttribute("style","display:none")
             this.notifyParent("zoom",[0,this.width])
-            //this.notifyParent(0,this.width)
         }
     }
 }
@@ -379,6 +371,8 @@ class SelectionRectangle {
 let graph = new LineChart()
 let total = el("div", graph)
 
+document.body.style = "font: 10px sans-serif;margin:0;padding:0;box-sizing:border-box"
+document.documentElement.style = "margin:0;padding:0;box-sizing:border-box"
 mount(document.body, total);
 
 var updateInterval = 1000
