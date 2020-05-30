@@ -1,6 +1,17 @@
 const { el, svg, mount, text, list, setChildren } = redom
 
-dataset = []
+const model = {
+    state: {
+        updateGraph: true,
+        visibility: [1,1]
+    },
+    data: {
+        numOfCategories: 2,
+        categories: ["Port 443", "Port 80"],
+        dataset: [],
+        pending: [],
+    }
+}
 
 /* Charting Components */
 class Line {
@@ -8,8 +19,8 @@ class Line {
         this.el = svg("path", {style:"stroke-width:2;fill:none;stroke:black;"})
     }
     update(data) {
-        this.el.setAttribute("d",data)
-        //this.el.setAttribute("style","fill:none;stroke:"+data[1]+";")
+        this.el.setAttribute("d",data[0])
+        this.el.setAttribute("style","fill:none;stroke:"+data[1]+";stroke-wdith:2")
     }
 }
 
@@ -73,6 +84,33 @@ class ClipPath {
     }
 }
 
+class Button {
+    constructor(text, notifyParent) {
+        this.el = el("button", {onclick:function(e) {
+            notifyParent("toggleGraphUpdate")
+        }.bind(this)}, text)
+    }
+    update(text) {
+        this.el.textContent = text
+    }
+}
+
+class Legends {
+    constructor(notifyParent) {
+        this.index = null
+        this.checkbox = svg("rect", {width:10,height:10})
+        this.label = svg("text",{y:8,x:15}) 
+        this.el = svg("g.legend", this.checkbox, this.label)
+        this.checkbox.addEventListener("click", function() {notifyParent("toggelVisibility", this.index)}.bind(this))
+    }
+    update(data, index) {
+        this.index = index
+        this.label.textContent = data[2]
+        this.checkbox.setAttribute("fill", data[1])
+        this.el.setAttribute("transform", "translate(" + data[0][0] + "," + data[0][1] + ")")
+    }
+}
+
 class LineChart {
     constructor(refreshPeriod) {
         var margin = {top: 20, right: 200, bottom: 100, left: 50},
@@ -106,6 +144,7 @@ class LineChart {
         this.lowerRange = 0 
         this.upperRange = width - margin.left - margin.right
         this.firstUpdate = true 
+        this.color = d3.scaleLinear().domain([0,model.data.numOfCategories - 1]).range(['#0000FF', '#FF0000']);
 
         //Prepare scale for graph
         this.xScale = d3.scaleTime().range([margin.left, width - margin.right])
@@ -121,49 +160,68 @@ class LineChart {
         this.xAxisClip = new ClipPath("axisClip", this.margin().left, this.height()-this.margin().bottom, this.width()-this.margin().left-this.margin().right, this.margin().bottom)
         this.conatiner = svg("g", this.multiLine)
         this.xAxisConatiner = svg("g", this.xAxis, this.selectionAxis)
-        this.el = svg("svg", {id:"graph", width:960, height:500})
+        this.svgComponent = svg("svg", {id:"graph", width:960, height:500})
+        this.playPauseButton = new Button("Pause", this.onChildEvent.bind(this))
+        this.el = el("div", this.svgComponent, this.playPauseButton)
         this.selectionRectangle = new SelectionRectangle("X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, 50, this.onChildEvent.bind(this)/*this.onChildEvent("zoom")*/)
+        this.legends = list(svg("g"), Legends, null, this.onChildEvent.bind(this))
 
         //set children to the main component 
-        setChildren(this.el, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.selectionRectangle, this.yAxis])
+        setChildren(this.svgComponent, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.selectionRectangle, this.yAxis, this.legends])
 
         //set clip path for axis and line 
         this.conatiner.setAttribute("clip-path", 'url(#lineClip)')
         this.xAxisConatiner.setAttribute("clip-path", 'url(#axisClip)')
     }
     update() {
-        let length = dataset.length
+        let length = model.data.dataset.length
         if(length == 0 ) return
 
         //set scales if first update
         if(this.firstUpdate){
             this.firstUpdate = false
-            this.xScale.domain([dataset[0][0]-51000, dataset[length-1][0]-1000])
+            this.xScale.domain([model.data.dataset[0][0]-51000, model.data.dataset[length-1][0]-1000])
             this.selectionScale.domain(this.xScale.domain())
             this.yScale.domain([0, 100])
-            this.lastDataTime = dataset[length-1][0]
+            this.lastDataTime = model.data.dataset[length-1][0]
         }
 
         //remove any transforms
         this.multiLine.el.style = "transition: none"
         this.multiLine.el.removeAttribute("transform","translate(0,0)")
 
-        //Update line
-        this.multiLine.update([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[1]))(dataset)])
+        //Update line and legend
+        let legendData = []
+        let lineData = []
+        let xPosition = this.width() - this.margin().left - this.margin().right/3 - 30
+        let Yposition = this.height() / 40
+        for (let i = 0; i < model.data.numOfCategories; i++) {
+            let index = i +1
+            if (model.state.visibility[i]) {
+                legendData.push([[xPosition, index * Yposition ],this.color(i),model.data.categories[i]])
+                lineData.push([d3.line().x(d => this.xScale(d[0])).y(d => this.yScale(d[index]))(model.data.dataset), this.color(i)])
+            }
+            else {
+                legendData.push([[xPosition, index * Yposition ],"#c8c8c8",model.data.categories[i]])
+            }
+        }
+        this.legends.update(legendData)
+        this.multiLine.update(lineData)
         this.multiLine.el.removeAttribute("transform")
 
         //update x-axis scales
-        this.selectionScale.domain([dataset[length-1][0] - 50000, dataset[length-1][0]])
+        this.selectionScale.domain([model.data.dataset[length-1][0] - 50000, model.data.dataset[length-1][0]])
         let lowerDomain = this.selectionScale.invert(this.lowerRange + this.margin().left)
         let upperDomain = this.selectionScale.invert(this.upperRange + this.margin().left)
         this.xScale.domain([lowerDomain, upperDomain])
-
+        
+        
         //set up transistions and update axis
         document.body.offsetHeight
         this.multiLine.el.style = "transition: all 1s linear"
-        var updateDisplacement = this.xScale(dataset[length-1][0]) - this.xScale(this.lastDataTime)
-        var selectionScaleDisplacement = this.selectionScale(dataset[length-1][0]) - this.selectionScale(this.lastDataTime)
-        this.lastDataTime = dataset[length-1][0]
+        var updateDisplacement = this.xScale(model.data.dataset[length-1][0]) - this.xScale(this.lastDataTime)
+        var selectionScaleDisplacement = this.selectionScale(model.data.dataset[length-1][0]) - this.selectionScale(this.lastDataTime)
+        this.lastDataTime = model.data.dataset[length-1][0]
         this.multiLine.el.setAttribute("transform", "translate(" + -(updateDisplacement) + ",0)")
         this.xAxis.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),d.toTimeString().split(' ')[0], updateDisplacement]}.bind(this)))
         this.selectionAxis.update(this.selectionScale.ticks().map(function(d){return [this.selectionScale(d),d.toTimeString().split(' ')[0], selectionScaleDisplacement]}.bind(this)))
@@ -176,7 +234,13 @@ class LineChart {
                 this.upperRange = data[1]
                 this.update()
                 break
-                
+            case "toggleGraphUpdate":
+                model.state.updateGraph = !model.state.updateGraph
+                this.playPauseButton.update(model.state.updateGraph ? "Pause" : "Play")
+                break
+            case "toggelVisibility":
+                model.state.visibility[data] = !model.state.visibility[data]
+                break
         }
     }
 }
@@ -369,6 +433,7 @@ class SelectionRectangle {
 }
 
 let graph = new LineChart()
+
 let total = el("div", graph)
 
 document.body.style = "font: 10px sans-serif;margin:0;padding:0;box-sizing:border-box"
@@ -377,24 +442,50 @@ mount(document.body, total);
 
 var updateInterval = 1000
 
-var lastUpdateTime = 0
+
+
+
+
+var lastGraphUpdateTime = 0
 function updateGraph() {
-    if(lastUpdateTime != 0) {
-        if(Math.round((new Date()).getTime()) - lastUpdateTime > updateInterval) {
+    if (lastGraphUpdateTime != 0) {
+        if(Math.round((new Date()).getTime()) - lastGraphUpdateTime > updateInterval) {
             graph.update()
-            lastUpdateTime =  Math.round((new Date()).getTime()) 
+            lastGraphUpdateTime =  Math.round((new Date()).getTime()) 
         }
     }
     else{
-        lastUpdateTime =  Math.round((new Date()).getTime()) 
+        lastGraphUpdateTime =  Math.round((new Date()).getTime()) 
     }
     
     requestAnimationFrame(updateGraph)
 }
 
 /* Random Data Generator */
-setInterval( function() {
-    dataset.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1)])
-}, 1000)
+var lastDataUpdateTime = 0
+function GenerateData() {
+    if (lastDataUpdateTime != 0) {
+        if(Math.round((new Date()).getTime()) - lastDataUpdateTime > 1000) {
+            if (model.state.updateGraph) {
+                if (model.data.pending.length) {
+                    console.log(model.data.pending)
+                    model.data.dataset.push(...model.data.pending)
+                    model.data.pending = []
+                }
+                model.data.dataset.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1), Math.floor(Math.random()*100 + 1)])
+            }
+            else {
+                model.data.pending.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1), Math.floor(Math.random()*100 + 1)])
+            }
+            lastDataUpdateTime =  Math.round((new Date()).getTime()) 
+        }
+    }
+    else{
+        lastDataUpdateTime =  Math.round((new Date()).getTime()) 
+    }
+    
+    requestAnimationFrame(GenerateData)
+}
 /* End of Data Generator */
 requestAnimationFrame(updateGraph)
+requestAnimationFrame(GenerateData)
