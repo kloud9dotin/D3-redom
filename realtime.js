@@ -17,6 +17,7 @@ const model = {
 class Line {
     constructor() {
         this.el = svg("path", {style:"stroke-width:2;fill:none;stroke:black;"})
+        setStyle(this.el, {transition : "all 1s linear"}) 
     }
     update(data) {
         setAttr(this.el, {d:data[0]})
@@ -233,6 +234,9 @@ class LineChart {
             case "zoom":
                 this.lowerRange = data[0]
                 this.upperRange = data[1]
+                if(data[2]) {
+                    model.state.updateGraph = false
+                } else model.state.updateGraph = true
                 this.update()
                 break
             case "toggelVisibility":
@@ -348,10 +352,10 @@ class SelectionRectangle {
                 setStyle(this.el, {"pointer-events":"all"})
                 if(selection[0][0] - selection[1][0] == 0) this.selectionExtent = null
                 if(this.selectionExtent) {
-                    this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0])])
+                    this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]),1])
                 }
                 else {
-                    this.notifyParent("zoom",[0,this.width])
+                    this.notifyParent("zoom",[0,this.width, 0])
                 }
                 setAttr(this.overlay, {cursor:this.cursor["overlay"]})
                 this.update()
@@ -433,13 +437,13 @@ class SelectionRectangle {
             setStyle(this.handleRight,{display:null, opacity: 0})
             setAttr(this.handleRight, {x:this.selectionExtent[1][0] - 3, y:0, width: 6, height: this.height})
 
-            this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0])])
+            this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]), 1])
         }
         else {
             setStyle(this.selection,{display:"none"})
             setStyle(this.handleLeft,{display:"none"})
             setStyle(this.handleRight,{display:"none"})
-            this.notifyParent("zoom",[0,this.width])
+            this.notifyParent("zoom",[0,this.width, 0])
         }
     }
 }
@@ -449,32 +453,32 @@ class DataGenerator {
         this.animationId = null //ID to start and stop data generation 
         this.button = el("button.w-100.h2.f7", {onclick:function(e) {
             model.state.updateGraph = !model.state.updateGraph
-            this.button.textContent = model.state.updateGraph ? "Pause" : "Play"
         }.bind(this)}, "Pause")
         this.el = el("div.w-100", this.button)
 
         let lastDataUpdateTime = 0
         this.GenerateData = function() {
-        if (lastDataUpdateTime != 0) {
-            if(Math.round((new Date()).getTime()) - lastDataUpdateTime > 1000) {
-                if (model.state.updateGraph) {
-                    if (model.data.pending.length) {
-                        model.data.dataset.push(...model.data.pending)
-                        model.data.pending = []
+            this.button.textContent = model.state.updateGraph ? "Pause" : "Play"
+            if (lastDataUpdateTime != 0) {
+                if(Math.round((new Date()).getTime()) - lastDataUpdateTime > 1000) {
+                    if (model.state.updateGraph) {
+                        if (model.data.pending.length) {
+                            model.data.dataset.push(...model.data.pending)
+                            model.data.pending = []
+                        }
+                        model.data.dataset.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1), Math.floor(Math.random()*100 + 1)])
                     }
-                    model.data.dataset.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1), Math.floor(Math.random()*100 + 1)])
+                    else {
+                        model.data.pending.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1), Math.floor(Math.random()*100 + 1)])
+                    }
+                    lastDataUpdateTime =  Math.round((new Date()).getTime()) 
                 }
-                else {
-                    model.data.pending.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1), Math.floor(Math.random()*100 + 1)])
-                }
+            }
+            else{
                 lastDataUpdateTime =  Math.round((new Date()).getTime()) 
             }
-        }
-        else{
-            lastDataUpdateTime =  Math.round((new Date()).getTime()) 
-        }
-        this.animationId = requestAnimationFrame(this.GenerateData)
-        }.bind(this)
+            this.animationId = requestAnimationFrame(this.GenerateData)
+            }.bind(this)
         this.start()
     }
     start() {
