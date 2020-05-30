@@ -20,7 +20,7 @@ class Line {
     }
     update(data) {
         setAttr(this.el, {d:data[0]})
-        setStyle(this.el,{fill:"none",stroke:data[1],"stroke-width":"2;"})
+        setStyle(this.el,{fill:"none",stroke:data[1],"stroke-width":"1.5px"})
     }
 }
 
@@ -503,7 +503,6 @@ function tickFormatting(data) {
     temp = data.map(function(k){
         d = k.toTimeString().split(' ')[0].split(":")
         if (d[0] == lastHour) {
-            console.log(d[1], lastMin)
             if (d[1] == lastMin) {
                 return "::" + d[2]
             }
