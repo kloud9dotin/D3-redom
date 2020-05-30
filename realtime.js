@@ -1,4 +1,4 @@
-const { el, svg, mount, text, list, setChildren } = redom
+const { el, svg, mount, text, list, setChildren, setStyle, setAttr } = redom
 
 const model = {
     state: {
@@ -19,8 +19,8 @@ class Line {
         this.el = svg("path", {style:"stroke-width:2;fill:none;stroke:black;"})
     }
     update(data) {
-        this.el.setAttribute("d",data[0])
-        this.el.setAttribute("style","fill:none;stroke:"+data[1]+";stroke-wdith:2")
+        setAttr(this.el, {d:data[0]})
+        setStyle(this.el,{fill:"none",stroke:data[1],"stroke-width":"2;"})
     }
 }
 
@@ -28,21 +28,22 @@ class XTicks {
     constructor() {
         this.line, this.text 
         this.lastValue = null, this.stepSize = 0, this.lastStep = 0
-        this.el = svg("g", {style:"transition: all 1s linear"}) 
+        this.el = svg("g")
+        setStyle(this.el, {transition : "all 1s linear"}) 
     }
     update(data) {
         this.stepSize = data[2]
         if(data[1] != this.lastValue && this.lastValue != null) {
-            this.el.style = "transition: none"
-            this.el.setAttribute("transform", "translate(" + (data[0] + this.stepSize) + ",0)")
+            setStyle(this.el, {transition : "none"} )
+            setAttr(this.el, {transform:"translate(" + (data[0] + this.stepSize) + ",0)"})
             document.body.offsetHeight
-            this.el.style = "transition: all 1s linear"
+            setStyle(this.el, {transition : "all 1s linear"})
         }
-        this.el.setAttribute("transform", "translate(" + data[0] + ",0)")
+        setAttr(this.el, {transform:"translate(" + data[0] + ",0)"})
         this.lastStep = data[0]
         this.lastValue = data[1]
         this.line = svg("line", {style:"stroke:currentcolor;",y2:"6"}) 
-        this.text = svg("text", {style:"fill:currentcolor;",y:9, dy:"0.71em"}, data[1])
+        this.text = svg("text.f7-ns", {style:"fill:currentcolor;",y:9, dy:"0.71em"}, data[1])
         setChildren(this.el, [this.line, this.text])
     }
 }
@@ -53,9 +54,9 @@ class YTicks {
         this.el = svg("g.pathAnimate", {style:"opacity:1;"}) 
     }
     update(data) {
-        this.el.setAttribute("transform", "translate(0," + data[0] + ")")
+        setAttr(this.el, {transform: "translate(0," + data[0] + ")"})
         this.line = svg("line", {style:"stroke:currentcolor;",x2:"-6"}) 
-        this.text = svg("text", {style:"fill:currentcolor;",x:-15, dy:"0.32em"}, data[1])
+        this.text = svg("text.f7-ns", {style:"fill:currentcolor;",x:-15, dy:"0.32em"}, data[1])
         setChildren(this.el, [this.line, this.text])
     }
 }
@@ -80,18 +81,8 @@ class Axis {
 
 class ClipPath {
     constructor(id, x, y, width, height) {
-        this.el = svg("defs", svg("clipPath", {id:id}, svg("rect",{x:x, y:y, width:width, height:height})))
-    }
-}
-
-class Button {
-    constructor(text, notifyParent) {
-        this.el = el("button", {onclick:function(e) {
-            notifyParent("toggleGraphUpdate")
-        }.bind(this)}, text)
-    }
-    update(text) {
-        this.el.textContent = text
+        this.rect = svg("rect",{x:x, y:y, width:width, height:height})
+        this.el = svg("defs",  svg("clipPath", {id:id}, this.rect))
     }
 }
 
@@ -99,27 +90,25 @@ class Legends {
     constructor(notifyParent) {
         this.index = null
         this.checkbox = svg("rect", {width:10,height:10})
-        this.label = svg("text",{y:8,x:15}) 
+        this.label = svg("text.f7-ns",{y:8,x:15}) 
         this.el = svg("g.legend", this.checkbox, this.label)
         this.checkbox.addEventListener("click", function() {notifyParent("toggelVisibility", this.index)}.bind(this))
     }
     update(data, index) {
         this.index = index
         this.label.textContent = data[2]
-        this.checkbox.setAttribute("fill", data[1])
-        this.el.setAttribute("transform", "translate(" + data[0][0] + "," + data[0][1] + ")")
+        setAttr(this.checkbox, {fill: data[1]})
+        setAttr(this.el, {transform: "translate(" + data[0][0] + "," + data[0][1] + ")"})
     }
 }
 
 class LineChart {
     constructor(refreshPeriod) {
-        var margin = {top: 20, right: 200, bottom: 100, left: 50},
-            margin2 = {top: 230, right: 20, bottom: 30, left: 30},
-            width = 960,
-            height = 500,
-            height2 = 40,
-            xAxisOffset = 400,
-            yAxisOffset = 50
+        let margin = {top: 20, right: 100, bottom: 100, left: 30},
+            width = 640,
+            height = 360,
+            xAxisOffset = 540,
+            yAxisOffset = margin.left
         this.height = function(value) {
             if (!arguments.length) return height
                 height = value
@@ -131,19 +120,20 @@ class LineChart {
         this.margin = function(value) {
             if (!arguments.length) return margin
         }
-        this.xaxis_offset = function(value) {
-            if (!arguments.length) return xaxis_offset
-            xaxis_offset = value
+        this.xAxisOffset = function(value) {
+            if (!arguments.length) return xAxisOffset
+            xAxisOffset = value
         }
-        this.yaxis_offset = function(value) {
-            if (!arguments.length) return yaxis_offset
-            yaxis_offset = value
+        this.yAxisOffset = function(value) {
+            if (!arguments.length) return yAxisOffset
+            yAxisOffset = value
         }
 
         //initalize component variables
         this.lowerRange = 0 
         this.upperRange = width - margin.left - margin.right
         this.firstUpdate = true 
+        this.refreshPeriod = refreshPeriod || 1000
         this.color = d3.scaleLinear().domain([0,model.data.numOfCategories - 1]).range(['#0000FF', '#FF0000']);
 
         //Prepare scale for graph
@@ -158,20 +148,28 @@ class LineChart {
         this.yAxis = new Axis("y", yAxisOffset, (height - margin.bottom+ 0.5), (margin.top - 0.5))
         this.clipPath = new ClipPath("lineClip", this.margin().left, this.margin().top, this.width()-this.margin().left-this.margin().right, this.height()-this.margin().top-this.margin().bottom)
         this.xAxisClip = new ClipPath("axisClip", this.margin().left, this.height()-this.margin().bottom, this.width()-this.margin().left-this.margin().right, this.margin().bottom)
-        this.conatiner = svg("g", this.multiLine)
-        this.xAxisConatiner = svg("g", this.xAxis, this.selectionAxis)
-        this.svgComponent = svg("svg", {id:"graph", width:960, height:500})
-        this.playPauseButton = new Button("Pause", this.onChildEvent.bind(this))
-        this.el = el("div", this.svgComponent, this.playPauseButton)
+        this.conatiner = svg("g", {"clip-path": "url(#lineClip)"}, this.multiLine)
+        this.xAxisConatiner = svg("g", {"clip-path": "url(#axisClip)"}, this.xAxis, this.selectionAxis)
+        this.el = svg("svg")
         this.selectionRectangle = new SelectionRectangle("X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, 50, this.onChildEvent.bind(this)/*this.onChildEvent("zoom")*/)
         this.legends = list(svg("g"), Legends, null, this.onChildEvent.bind(this))
 
         //set children to the main component 
-        setChildren(this.svgComponent, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.selectionRectangle, this.yAxis, this.legends])
+        setChildren(this.el, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.selectionRectangle, this.yAxis, this.legends])
 
-        //set clip path for axis and line 
-        this.conatiner.setAttribute("clip-path", 'url(#lineClip)')
-        this.xAxisConatiner.setAttribute("clip-path", 'url(#axisClip)')
+        let lastGraphUpdateTime = 0
+        let updateGraph = function () {
+            if (lastGraphUpdateTime != 0) {
+                if(Math.round((new Date()).getTime()) - lastGraphUpdateTime > this.refreshPeriod) {
+                    this.update()
+                    lastGraphUpdateTime =  Math.round((new Date()).getTime()) 
+                }
+            }
+            else lastGraphUpdateTime =  Math.round((new Date()).getTime()) 
+            requestAnimationFrame(updateGraph)
+        }.bind(this)
+        
+        requestAnimationFrame(updateGraph)
     }
     update() {
         let length = model.data.dataset.length
@@ -179,6 +177,8 @@ class LineChart {
 
         //set scales if first update
         if(this.firstUpdate){
+            this.resize()
+            setAttr(this.el, {width: this.width(), height:this.height()})
             this.firstUpdate = false
             this.xScale.domain([model.data.dataset[0][0]-51000, model.data.dataset[length-1][0]-1000])
             this.selectionScale.domain(this.xScale.domain())
@@ -193,8 +193,8 @@ class LineChart {
         //Update line and legend
         let legendData = []
         let lineData = []
-        let xPosition = this.width() - this.margin().left - this.margin().right/3 - 30
-        let Yposition = this.height() / 40
+        let xPosition = this.width() - this.margin().right/3 - 30
+        let Yposition = this.height() / 10
         for (let i = 0; i < model.data.numOfCategories; i++) {
             let index = i +1
             if (model.state.visibility[i]) {
@@ -218,12 +218,13 @@ class LineChart {
         
         //set up transistions and update axis
         document.body.offsetHeight
-        this.multiLine.el.style = "transition: all 1s linear"
-        var updateDisplacement = this.xScale(model.data.dataset[length-1][0]) - this.xScale(this.lastDataTime)
-        var selectionScaleDisplacement = this.selectionScale(model.data.dataset[length-1][0]) - this.selectionScale(this.lastDataTime)
+        setStyle(this.multiLine, {transition: "all 1s linear"})
+        let updateDisplacement = this.xScale(model.data.dataset[length-1][0]) - this.xScale(this.lastDataTime)
+        let selectionScaleDisplacement = this.selectionScale(model.data.dataset[length-1][0]) - this.selectionScale(this.lastDataTime)
         this.lastDataTime = model.data.dataset[length-1][0]
-        this.multiLine.el.setAttribute("transform", "translate(" + -(updateDisplacement) + ",0)")
-        this.xAxis.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),d.toTimeString().split(' ')[0], updateDisplacement]}.bind(this)))
+        setAttr(this.multiLine.el, {transform: "translate(" + -(updateDisplacement) + ",0)"})
+        let tickData = tickFormatting(this.xScale.ticks())
+        this.xAxis.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),tickData[i], updateDisplacement]}.bind(this)))
         this.selectionAxis.update(this.selectionScale.ticks().map(function(d){return [this.selectionScale(d),d.toTimeString().split(' ')[0], selectionScaleDisplacement]}.bind(this)))
         this.yAxis.update(this.yScale.ticks().map(function(d){return [this.yScale(d) ,d]}.bind(this)))
     }
@@ -234,14 +235,33 @@ class LineChart {
                 this.upperRange = data[1]
                 this.update()
                 break
-            case "toggleGraphUpdate":
-                model.state.updateGraph = !model.state.updateGraph
-                this.playPauseButton.update(model.state.updateGraph ? "Pause" : "Play")
-                break
             case "toggelVisibility":
                 model.state.visibility[data] = !model.state.visibility[data]
                 break
         }
+    }
+    resize() {
+        this.width(this.el.parentElement.clientWidth)
+        this.height(this.width() * 9/16)
+        this.xAxisOffset(this.height() - 100)
+        setAttr(this.el, {width: this.width(), height: this.height()})
+        let width = this.width()
+        let margin = this.margin()
+        let height = this.height()
+        let xAxisOffset = this.xAxisOffset()
+        this.upperRange = width - margin.left - margin.right
+        this.xScale = d3.scaleTime().range([margin.left, width - margin.right])
+        this.selectionScale = d3.scaleTime().range([margin.left, width - margin.right])
+        this.yScale = d3.scaleLinear().range([height - margin.bottom, margin.top]).domain([0,100])
+        setAttr(this.xAxis, {transform: "translate(0," + xAxisOffset + ")"})
+        setAttr(this.xAxis.path, {d: "M" + (margin.left + 0.5) + ",0.5H" + (width - margin.right - 0.5) })
+        setAttr(this.selectionAxis, {transform:"translate(0," + (height - 30) + ")"})
+        setAttr(this.selectionAxis.path, {d: "M" + (margin.left + 0.5) + ",0.5H" + (width - margin.right - 0.5) })
+        setAttr(this.yAxis.path, {d: "M0.5," + (height - margin.bottom+ 0.5) + "V" + (margin.top - 0.5)})
+        setAttr(this.clipPath.rect, {width: width - margin.left -margin.right, height: height - margin.top -margin.bottom})
+        setAttr(this.xAxisClip.rect, {y: height - margin.bottom, width: width - margin.left - margin.right})
+        this.selectionRectangle = new SelectionRectangle("X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, margin.left, this.onChildEvent.bind(this)/*this.onChildEvent("zoom")*/)
+        setChildren(this.el, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.selectionRectangle, this.yAxis, this.legends])
     }
 }
 
@@ -259,7 +279,7 @@ class SelectionRectangle {
         this.selectionExtent = null
         let started = function(event) {
             if (this.touchending && !event.touches) return;
-            var type = event.target.getAttribute("data"),
+            let type = event.target.getAttribute("data"),
                 mode  =  (type === "selection"? "drag" : "handle"),
                 dim = this.dim,
                 signX = dim === "Y" ? null : this.signsX[type],
@@ -280,7 +300,7 @@ class SelectionRectangle {
                 else {
                     point0 = [event.clientX, event.clientY]
                 }
-            var point = point0
+            let point = point0
             if (type === "overlay") {
                 if (selection) moving = true;
                 this.selectionExtent = selection = [
@@ -297,9 +317,9 @@ class SelectionRectangle {
             n1 = n0;
             e1 = e0;
             s1 = s0;
-            this.el.setAttribute("style", "pointer-events:none")
-            this.overlay.setAttribute("cursor", this.cursor[type])
-            var moved = function(event) {
+            setStyle(this.el, {"pointer-events":"none"})
+            setAttr(this.overlay, {cursor: this.cursor[type]})
+            let moved = function(event) {
                 let point1
                 if (event.type == "touchmove") {
                     point1 = [event.changedTouches[0].clientX,event.changedTouches[0].clientY]
@@ -315,7 +335,7 @@ class SelectionRectangle {
                 move.bind(this)()
             }.bind(this)
 
-            var ended = function(event) {
+            let ended = function(event) {
                 if (event.type == "touchend" ) {
                     event.preventDefault()
                 }
@@ -325,7 +345,7 @@ class SelectionRectangle {
                 this.overlay.removeEventListener("mouseleave", ended, true)
                 this.el.removeEventListener("touchmove", moved, true)
                 this.el.removeEventListener("touchend", ended, true)
-                this.el.setAttribute("style", "pointer-events:all")
+                setStyle(this.el, {"pointer-events":"all"})
                 if(selection[0][0] - selection[1][0] == 0) this.selectionExtent = null
                 if(this.selectionExtent) {
                     this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0])])
@@ -333,7 +353,7 @@ class SelectionRectangle {
                 else {
                     this.notifyParent("zoom",[0,this.width])
                 }
-                this.overlay.setAttribute("cursor", this.cursor["overlay"])
+                setAttr(this.overlay, {cursor:this.cursor["overlay"]})
                 this.update()
             }.bind(this)
 
@@ -347,7 +367,7 @@ class SelectionRectangle {
             this.update()
 
             function move() {
-                var t;
+                let t;
                 dx = point[0] - point0[0];
                 dy = point[1] - point0[1];
                 switch (mode) {
@@ -404,88 +424,102 @@ class SelectionRectangle {
     }
     update() {
         if(this.selectionExtent) {
-            this.selection.setAttribute("style", "display:null")
-            this.selection.setAttribute("x", this.selectionExtent[0][0])
-            this.selection.setAttribute("y", this.selectionExtent[0][1])
-            this.selection.setAttribute("width", this.selectionExtent[1][0] - this.selectionExtent[0][0])
-            this.selection.setAttribute("height", this.selectionExtent[1][1] - this.selectionExtent[0][1])
+            setStyle(this.selection,{display:null})
+            setAttr(this.selection, {x:this.selectionExtent[0][0], y:this.selectionExtent[0][1], width: this.selectionExtent[1][0] - this.selectionExtent[0][0], height: this.selectionExtent[1][1] - this.selectionExtent[0][1]})
 
-            this.handleLeft.setAttribute("style", "display:null;opacity:0;")
-            this.handleLeft.setAttribute("x", this.selectionExtent[0][0] - 3)
-            this.handleLeft.setAttribute("y", 0)
-            this.handleLeft.setAttribute("width", 6)
-            this.handleLeft.setAttribute("height", this.height)
+            setStyle(this.handleLeft,{display:null, opacity: 0})
+            setAttr(this.handleLeft, {x:this.selectionExtent[0][0] - 3, y:0, width: 6, height: this.height})
 
-            this.handleRight.setAttribute("style", "display:null;opacity:0;")
-            this.handleRight.setAttribute("x", this.selectionExtent[1][0] - 3)
-            this.handleRight.setAttribute("y", 0)
-            this.handleRight.setAttribute("width", 6)
-            this.handleRight.setAttribute("height", this.height)
+            setStyle(this.handleRight,{display:null, opacity: 0})
+            setAttr(this.handleRight, {x:this.selectionExtent[1][0] - 3, y:0, width: 6, height: this.height})
+
             this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0])])
         }
         else {
-            this.selection.setAttribute("style","display:none")
-            this.handleRight.setAttribute("style","display:none")
-            this.handleLeft.setAttribute("style","display:none")
+            setStyle(this.selection,{display:"none"})
+            setStyle(this.handleLeft,{display:"none"})
+            setStyle(this.handleRight,{display:"none"})
             this.notifyParent("zoom",[0,this.width])
         }
     }
 }
 
-let graph = new LineChart()
+class DataGenerator {
+    constructor() {
+        this.animationId = null //ID to start and stop data generation 
+        this.button = el("button.w-100.h2.f7", {onclick:function(e) {
+            model.state.updateGraph = !model.state.updateGraph
+            this.button.textContent = model.state.updateGraph ? "Pause" : "Play"
+        }.bind(this)}, "Pause")
+        this.el = el("div.w-100", this.button)
 
-let total = el("div", graph)
-
-document.body.style = "font: 10px sans-serif;margin:0;padding:0;box-sizing:border-box"
-document.documentElement.style = "margin:0;padding:0;box-sizing:border-box"
-mount(document.body, total);
-
-var updateInterval = 1000
-
-
-
-
-
-var lastGraphUpdateTime = 0
-function updateGraph() {
-    if (lastGraphUpdateTime != 0) {
-        if(Math.round((new Date()).getTime()) - lastGraphUpdateTime > updateInterval) {
-            graph.update()
-            lastGraphUpdateTime =  Math.round((new Date()).getTime()) 
-        }
-    }
-    else{
-        lastGraphUpdateTime =  Math.round((new Date()).getTime()) 
-    }
-    
-    requestAnimationFrame(updateGraph)
-}
-
-/* Random Data Generator */
-var lastDataUpdateTime = 0
-function GenerateData() {
-    if (lastDataUpdateTime != 0) {
-        if(Math.round((new Date()).getTime()) - lastDataUpdateTime > 1000) {
-            if (model.state.updateGraph) {
-                if (model.data.pending.length) {
-                    console.log(model.data.pending)
-                    model.data.dataset.push(...model.data.pending)
-                    model.data.pending = []
+        let lastDataUpdateTime = 0
+        this.GenerateData = function() {
+        if (lastDataUpdateTime != 0) {
+            if(Math.round((new Date()).getTime()) - lastDataUpdateTime > 1000) {
+                if (model.state.updateGraph) {
+                    if (model.data.pending.length) {
+                        model.data.dataset.push(...model.data.pending)
+                        model.data.pending = []
+                    }
+                    model.data.dataset.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1), Math.floor(Math.random()*100 + 1)])
                 }
-                model.data.dataset.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1), Math.floor(Math.random()*100 + 1)])
+                else {
+                    model.data.pending.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1), Math.floor(Math.random()*100 + 1)])
+                }
+                lastDataUpdateTime =  Math.round((new Date()).getTime()) 
             }
-            else {
-                model.data.pending.push([Math.round((new Date()).getTime()), Math.floor(Math.random()*100 + 1), Math.floor(Math.random()*100 + 1)])
-            }
+        }
+        else{
             lastDataUpdateTime =  Math.round((new Date()).getTime()) 
         }
+        this.animationId = requestAnimationFrame(this.GenerateData)
+        }.bind(this)
+        this.start()
     }
-    else{
-        lastDataUpdateTime =  Math.round((new Date()).getTime()) 
+    start() {
+        this.animationId = requestAnimationFrame(this.GenerateData)
     }
-    
-    requestAnimationFrame(GenerateData)
+    stop() {
+        cancelAnimationFrame(this.animationId)
+        this.animationId = null
+    }
 }
-/* End of Data Generator */
-requestAnimationFrame(updateGraph)
-requestAnimationFrame(GenerateData)
+
+let graph = new LineChart()
+let dataGenerator = new DataGenerator()
+
+let total = el("div.w-100", dataGenerator, graph)
+
+document.body.classList.add("w-100","h-100","fs7")
+setStyle(document.body, {font: "6px sans-serif", margin: 0, padding: 0, "box-sizing": "border-box"})
+setStyle(document.documentElement, {height:"100%", width:"100%", margin: 0, padding: 0, "box-sizing": "border-box"})
+mount(document.body, total);
+
+function tickFormatting(data) {
+    let lastHour = null
+    let lastMin = null
+    let temp
+    temp = data.map(function(k){
+        d = k.toTimeString().split(' ')[0].split(":")
+        if (d[0] == lastHour) {
+            console.log(d[1], lastMin)
+            if (d[1] == lastMin) {
+                return "::" + d[2]
+            }
+            else {
+                lastMin = d[1]
+                return ":" + d[1] + ":" + d[2]
+            }
+        }
+        else {
+            lastHour = d[0]
+            return k.toTimeString().split(" ")[0]
+        }
+    })
+    return temp
+}
+
+window.onresize = function(e) {
+    graph.resize()
+}
