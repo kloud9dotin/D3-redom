@@ -17,7 +17,6 @@ const model = {
 class Line {
     constructor() {
         this.el = svg("path", {style:"stroke-width:2;fill:none;stroke:black;"})
-        setStyle(this.el, {transition : "all 1s linear"}) 
     }
     update(data) {
         setAttr(this.el, {d:data[0]})
@@ -104,22 +103,26 @@ class Legends {
 }
 
 class LineChart {
-    constructor(refreshPeriod) {
+    constructor(refreshPeriod, breadth, aspectRatio ) {
         let margin = {top: 20, right: 100, bottom: 100, left: 30},
-            width = 640,
+            width = breadth || 640,
             height = 360,
             xAxisOffset = 540,
             yAxisOffset = margin.left
         this.height = function(value) {
             if (!arguments.length) return height
-                height = value
+            height = value
         }
         this.width = function(value) {
             if (!arguments.length) return width
-                width = value
+            width = value
+            if( value == null) this.customWidth = false
+            else this.customWidth = true
+            this.resize()
         }
         this.margin = function(value) {
             if (!arguments.length) return margin
+            this.resize()
         }
         this.xAxisOffset = function(value) {
             if (!arguments.length) return xAxisOffset
@@ -131,6 +134,8 @@ class LineChart {
         }
 
         //initalize component variables
+        this.customWidth = breadth ? true : false
+        this.aspectRatio = aspectRatio || 1.77
         this.lowerRange = 0 
         this.upperRange = width - margin.left - margin.right
         this.firstUpdate = true 
@@ -194,7 +199,7 @@ class LineChart {
         //Update line and legend
         let legendData = []
         let lineData = []
-        let xPosition = this.width() - this.margin().right/3 - 30
+        let xPosition = this.width() - this.margin().right + 10
         let Yposition = this.height() / 10
         for (let i = 0; i < model.data.numOfCategories; i++) {
             let index = i +1
@@ -225,8 +230,9 @@ class LineChart {
         this.lastDataTime = model.data.dataset[length-1][0]
         setAttr(this.multiLine.el, {transform: "translate(" + -(updateDisplacement) + ",0)"})
         let tickData = tickFormatting(this.xScale.ticks())
+        let selectionTickData = tickFormatting(this.selectionScale.ticks())
         this.xAxis.update(this.xScale.ticks().map(function(d,i){return [this.xScale(d),tickData[i], updateDisplacement]}.bind(this)))
-        this.selectionAxis.update(this.selectionScale.ticks().map(function(d){return [this.selectionScale(d),d.toTimeString().split(' ')[0], selectionScaleDisplacement]}.bind(this)))
+        this.selectionAxis.update(this.selectionScale.ticks().map(function(d,i){return [this.selectionScale(d),selectionTickData[i], selectionScaleDisplacement]}.bind(this)))
         this.yAxis.update(this.yScale.ticks().map(function(d){return [this.yScale(d) ,d]}.bind(this)))
     }
     onChildEvent(type, data) {
@@ -234,9 +240,18 @@ class LineChart {
             case "zoom":
                 this.lowerRange = data[0]
                 this.upperRange = data[1]
+                let nodes = this.multiLine.el.childNodes
                 if(data[2]) {
+                    for (let i = 0; i< nodes.length; i++) {
+                        setStyle(nodes[i], {transition : "all 1s linear"})
+                    }
                     model.state.updateGraph = false
-                } else model.state.updateGraph = true
+                } else {
+                    for (let i = 0; i< nodes.length; i++) {
+                        setStyle(nodes[i], {transition : "none"})
+                    }
+                    model.state.updateGraph = true
+                }
                 this.update()
                 break
             case "toggelVisibility":
@@ -245,8 +260,12 @@ class LineChart {
         }
     }
     resize() {
-        this.width(this.el.parentElement.clientWidth)
-        this.height(this.width() * 9/16)
+        if (!this.customWidth) this.width(this.el.parentElement.clientWidth)
+        this.height(this.width() * 1/this.aspectRatio)
+        if ( (window.innerHeight - this.el.getBoundingClientRect().y) < this.height()) {
+            this.height( (window.innerHeight - this.el.getBoundingClientRect().y))
+            this.width(this.height() * this.aspectRatio)
+        }
         this.xAxisOffset(this.height() - 100)
         setAttr(this.el, {width: this.width(), height: this.height()})
         let width = this.width()
@@ -490,7 +509,7 @@ class DataGenerator {
     }
 }
 
-let graph = new LineChart()
+let graph = new LineChart(null,null,4/3)
 let dataGenerator = new DataGenerator()
 
 let total = el("div.w-100", dataGenerator, graph)
