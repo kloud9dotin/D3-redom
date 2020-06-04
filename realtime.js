@@ -157,11 +157,12 @@ class LineChart {
         this.conatiner = svg("g", {"clip-path": "url(#lineClip)"}, this.multiLine)
         this.xAxisConatiner = svg("g", {"clip-path": "url(#axisClip)"}, this.xAxis, this.selectionAxis)
         this.el = svg("svg")
-        this.selectionRectangle = new SelectionRectangle("X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, 50, this.onChildEvent.bind(this)/*this.onChildEvent("zoom")*/)
+        this.selectionRectangle = new SelectionRectangle(true, "X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, 50, this.onChildEvent.bind(this)/*this.onChildEvent("zoom")*/)
+        this.graphAreaSelection = new SelectionRectangle(false, "X", this.margin().top, ( this.xScale.range()[1] - this.xScale.range()[0]), this.height()-this.margin().top-this.margin().bottom, 50, this.onChildEvent.bind(this) )
         this.legends = list(svg("g"), Legends, null, this.onChildEvent.bind(this))
 
         //set children to the main component 
-        setChildren(this.el, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.selectionRectangle, this.yAxis, this.legends])
+        setChildren(this.el, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.graphAreaSelection,this.selectionRectangle, this.yAxis, this.legends])
 
         let lastGraphUpdateTime = 0
         let updateGraph = function () {
@@ -283,13 +284,15 @@ class LineChart {
         setAttr(this.yAxis.path, {d: "M0.5," + (height - margin.bottom+ 0.5) + "V" + (margin.top - 0.5)})
         setAttr(this.clipPath.rect, {width: width - margin.left -margin.right, height: height - margin.top -margin.bottom})
         setAttr(this.xAxisClip.rect, {y: height - margin.bottom, width: width - margin.left - margin.right})
-        this.selectionRectangle = new SelectionRectangle("X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, margin.left, this.onChildEvent.bind(this)/*this.onChildEvent("zoom")*/)
-        setChildren(this.el, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.selectionRectangle, this.yAxis, this.legends])
+        this.selectionRectangle = new SelectionRectangle(true, "X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, margin.left, this.onChildEvent.bind(this)/*this.onChildEvent("zoom")*/)
+        this.graphAreaSelection = new SelectionRectangle(false, "X", this.margin().top, ( this.xScale.range()[1] - this.xScale.range()[0]), this.height()-this.margin().top-this.margin().bottom, margin.left, this.onChildEvent.bind(this) )
+        setChildren(this.el, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.graphAreaSelection,this.selectionRectangle, this.yAxis, this.legends])
     }
 }
 
 class SelectionRectangle {
-    constructor(dim, dy, width, height, dx, zoomFn) {
+    constructor(standalone ,dim, dy, width, height, dx, zoomFn) {
+        this.standalone = standalone
         this.dim = dim
         this.width = width
         this.height = height
@@ -317,6 +320,11 @@ class SelectionRectangle {
                 dy = 0,
                 moving,
                 point0
+                console.log(type, mode)
+                if(!this.standalone && selection) {
+                    type = "seelction"
+                    mode = "drag"
+                }
                 if (event.touches) {
                     point0 = [event.changedTouches[0].clientX,event.changedTouches[0].clientY]
                 }
@@ -377,7 +385,7 @@ class SelectionRectangle {
                     this.notifyParent("zoom",[0,this.width, 0])
                 }
                 setAttr(this.overlay, {cursor:this.cursor["overlay"]})
-                this.update()
+                this.update(1)
             }.bind(this)
 
             this.overlay.addEventListener("mousemove", moved, true)
@@ -387,7 +395,7 @@ class SelectionRectangle {
             this.el.addEventListener("touchend", ended, true)
             if (event.cancelable) event.preventDefault()
             event.stopImmediatePropagation()
-            this.update()
+            this.update(0)
 
             function move() {
                 let t;
@@ -427,7 +435,7 @@ class SelectionRectangle {
                       || selection[1][0] !== e1
                       || selection[1][1] !== s1) {
                     this.selectionExtent = [[w1, n1], [e1 , s1]];
-                    this.update()
+                    this.update(0)
                   }
 
             }
@@ -435,34 +443,50 @@ class SelectionRectangle {
 
         }.bind(this)
 
-        this.overlay = svg("rect", {data:"overlay",x:0,y:0,width:this.width,height:this.height,cursor:this.cursor["overlay"],fill:"#E6E7E8",style:"pointer-events:all",onmousedown: started})
+        this.overlay = svg("rect", {data:"overlay",x:0,y:0,width:this.width,height:this.height,cursor:this.cursor["overlay"],fill:"#E6E7E8",style:"pointer-events:all;opacity:0.2",onmousedown: started})
         this.selection = svg("rect", {data:"selection",height:40,cursor:this.cursor["selection"],fill:"#fff","fill-opacity":0.3,stroke:"#fff",style:"display:none",onmousedown: started})
-        this.handleLeft = svg("rect.handle", {data:"w",height:40,cursor:this.cursor["w"],fill:"",style:"display:none",onmousedown: started})
-        this.handleRight = svg("rect.handle", {data:"e",height:40,cursor:this.cursor["e"],fill:"",style:"display:none;",onmousedown: started})
-        this.el = svg("g",{transform:"translate("+ dx +"," + dy +")",style:"pointer-events:all"}, this.overlay, this.selection, this.handleRight, this.handleLeft)
-        this.overlay.addEventListener("touchstart", started, {passive: true})
-        this.selection.addEventListener("touchstart", started, {passive: true})
-        this.handleLeft.addEventListener("touchstart", started, {passive: true})
-        this.handleRight.addEventListener("touchstart", started, {passive: true})
+        if (this.standalone) {
+            this.handleLeft = svg("rect.handle", {data:"w",height:40,cursor:this.cursor["w"],fill:"",style:"display:none",onmousedown: started})
+            this.handleRight = svg("rect.handle", {data:"e",height:40,cursor:this.cursor["e"],fill:"",style:"display:none;",onmousedown: started})
+            this.el = svg("g",{transform:"translate("+ dx +"," + dy +")",style:"pointer-events:all"}, this.overlay, this.selection, this.handleRight, this.handleLeft)
+            this.handleLeft.addEventListener("touchstart", started, {passive: true})
+            this.handleRight.addEventListener("touchstart", started, {passive: true})
+        }
+        else {
+            console.log("here")
+            this.el = svg("g.graphSelection",{transform:"translate("+ dx +"," + dy +")",style:"pointer-events:all"}, this.overlay, this.selection)
+            this.overlay.addEventListener("dblclick", function(e){
+                this.selectionExtent = null;
+                this.update(0)
+                this.notifyParent("zoom",[0,this.width, 0])}.bind(this))
+            this.overlay.addEventListener("touchstart", started, {passive: true})
+            this.selection.addEventListener("touchstart", started, {passive: true})
+        }
     }
-    update() {
+    update(ended) {
         if(this.selectionExtent) {
             setStyle(this.selection,{display:null})
             setAttr(this.selection, {x:this.selectionExtent[0][0], y:this.selectionExtent[0][1], width: this.selectionExtent[1][0] - this.selectionExtent[0][0], height: this.selectionExtent[1][1] - this.selectionExtent[0][1]})
 
-            setStyle(this.handleLeft,{display:null, opacity: 0})
-            setAttr(this.handleLeft, {x:this.selectionExtent[0][0] - 3, y:0, width: 6, height: this.height})
-
-            setStyle(this.handleRight,{display:null, opacity: 0})
-            setAttr(this.handleRight, {x:this.selectionExtent[1][0] - 3, y:0, width: 6, height: this.height})
-
-            this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]), 1])
+            if (this.standalone) {
+                setStyle(this.handleLeft,{display:null, opacity: 0})
+                setAttr(this.handleLeft, {x:this.selectionExtent[0][0] - 3, y:0, width: 6, height: this.height})
+                setStyle(this.handleRight,{display:null, opacity: 0})
+                setAttr(this.handleRight, {x:this.selectionExtent[1][0] - 3, y:0, width: 6, height: this.height})
+            }
+            //this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]), 1])
         }
         else {
             setStyle(this.selection,{display:"none"})
-            setStyle(this.handleLeft,{display:"none"})
-            setStyle(this.handleRight,{display:"none"})
-            this.notifyParent("zoom",[0,this.width, 0])
+            if(this.standalone) {
+                setStyle(this.handleLeft,{display:"none"})
+                setStyle(this.handleRight,{display:"none"})
+            }
+            //this.notifyParent("zoom",[0,this.width, 0])
+        }
+        console.log(ended)
+        if(ended && !this.standalone) {
+            setStyle(this.selection,{display:"none"})
         }
     }
 }
@@ -470,14 +494,8 @@ class SelectionRectangle {
 class DataGenerator {
     constructor() {
         this.animationId = null //ID to start and stop data generation 
-        this.button = el("button.w-100.h2.f7", {onclick:function(e) {
-            model.state.updateGraph = !model.state.updateGraph
-        }.bind(this)}, "Pause")
-        this.el = el("div.w-100", this.button)
-
         let lastDataUpdateTime = 0
         this.GenerateData = function() {
-            this.button.textContent = model.state.updateGraph ? "Pause" : "Play"
             if (lastDataUpdateTime != 0) {
                 if(Math.round((new Date()).getTime()) - lastDataUpdateTime > 1000) {
                     if (model.state.updateGraph) {
