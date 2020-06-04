@@ -156,13 +156,14 @@ class LineChart {
         this.xAxisClip = new ClipPath("axisClip", this.margin().left, this.height()-this.margin().bottom, this.width()-this.margin().left-this.margin().right, this.margin().bottom)
         this.conatiner = svg("g", {"clip-path": "url(#lineClip)"}, this.multiLine)
         this.xAxisConatiner = svg("g", {"clip-path": "url(#axisClip)"}, this.xAxis, this.selectionAxis)
-        this.el = svg("svg")
+        this.svgComponent = svg("svg")
+        this.el = el("div", this.svgComponent)
         this.selectionRectangle = new SelectionRectangle(true, "X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, 50, this.onChildEvent.bind(this)/*this.onChildEvent("zoom")*/)
         this.graphAreaSelection = new SelectionRectangle(false, "X", this.margin().top, ( this.xScale.range()[1] - this.xScale.range()[0]), this.height()-this.margin().top-this.margin().bottom, 50, this.onChildEvent.bind(this) )
         this.legends = list(svg("g"), Legends, null, this.onChildEvent.bind(this))
 
         //set children to the main component 
-        setChildren(this.el, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.graphAreaSelection,this.selectionRectangle, this.yAxis, this.legends])
+        setChildren(this.svgComponent, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.graphAreaSelection,this.selectionRectangle, this.yAxis, this.legends])
 
         let lastGraphUpdateTime = 0
         let updateGraph = function () {
@@ -222,7 +223,6 @@ class LineChart {
         let upperDomain = this.selectionScale.invert(this.upperRange + this.margin().left)
         this.xScale.domain([lowerDomain, upperDomain])
         
-        
         //set up transistions and update axis
         document.body.offsetHeight
         setStyle(this.multiLine, {transition: "all 1s linear"})
@@ -258,6 +258,13 @@ class LineChart {
             case "toggelVisibility":
                 model.state.visibility[data] = !model.state.visibility[data]
                 break
+            case "syncSelections":
+                if(data[0] == "graphSelection"){
+                    this.selectionRectangle.sync(data[1])
+                }
+                else {
+                    this.graphAreaSelection.sync(data[1])
+                }
         }
     }
     resize() {
@@ -268,7 +275,7 @@ class LineChart {
             this.width(this.height() * this.aspectRatio)
         }
         this.xAxisOffset(this.height() - 100)
-        setAttr(this.el, {width: this.width(), height: this.height()})
+        setAttr(this.svgComponent, {width: this.width(), height: this.height()})
         let width = this.width()
         let margin = this.margin()
         let height = this.height()
@@ -286,7 +293,7 @@ class LineChart {
         setAttr(this.xAxisClip.rect, {y: height - margin.bottom, width: width - margin.left - margin.right})
         this.selectionRectangle = new SelectionRectangle(true, "X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, margin.left, this.onChildEvent.bind(this)/*this.onChildEvent("zoom")*/)
         this.graphAreaSelection = new SelectionRectangle(false, "X", this.margin().top, ( this.xScale.range()[1] - this.xScale.range()[0]), this.height()-this.margin().top-this.margin().bottom, margin.left, this.onChildEvent.bind(this) )
-        setChildren(this.el, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.graphAreaSelection,this.selectionRectangle, this.yAxis, this.legends])
+        setChildren(this.svgComponent, [this.clipPath, this.xAxisClip, this.conatiner, this.xAxisConatiner, this.graphAreaSelection,this.selectionRectangle, this.yAxis, this.legends])
     }
 }
 
@@ -303,6 +310,7 @@ class SelectionRectangle {
         this.signsY = { overlay: +1, selection: +1, n: -1, e: null, s: +1, w: null, nw: -1, ne: -1, se: +1, sw: +1}
         this.extent = [[0,0],[this.width,this.height]]
         this.selectionExtent = null
+        this.lastTouch = 0
         let started = function(event) {
             if (this.touchending && !event.touches) return;
             let type = event.target.getAttribute("data"),
@@ -320,7 +328,6 @@ class SelectionRectangle {
                 dy = 0,
                 moving,
                 point0
-                console.log(type, mode)
                 if(!this.standalone && selection) {
                     type = "seelction"
                     mode = "drag"
@@ -377,6 +384,14 @@ class SelectionRectangle {
                 this.el.removeEventListener("touchmove", moved, true)
                 this.el.removeEventListener("touchend", ended, true)
                 setStyle(this.el, {"pointer-events":"all"})
+                let currentTime = new Date().getTime()
+                if( currentTime - this.lastTouch < 500) {
+                    console.log("zooming out")
+                    zoomout()
+                    this.lastTouch = currentTime
+                    return
+                }
+                this.lastTouch = currentTime
                 if(selection[0][0] - selection[1][0] == 0) this.selectionExtent = null
                 if(this.selectionExtent) {
                     this.notifyParent("zoom",[this.selectionExtent[0][0], this.selectionExtent[0][0] + (this.selectionExtent[1][0] - this.selectionExtent[0][0]),1])
@@ -384,8 +399,16 @@ class SelectionRectangle {
                 else {
                     this.notifyParent("zoom",[0,this.width, 0])
                 }
+                this.notifyParent("syncSelections",[this.standalone?"selectionRectangle":"graphSelection", this.selectionExtent])
                 setAttr(this.overlay, {cursor:this.cursor["overlay"]})
                 this.update(1)
+            }.bind(this)
+
+            let zoomout = function(){
+                this.selectionExtent = null;
+                this.update(0)
+                this.notifyParent("syncSelections",[this.standalone?"selectionRectangle":"graphSelection", this.selectionExtent])
+                this.notifyParent("zoom",[0,this.width, 0])
             }.bind(this)
 
             this.overlay.addEventListener("mousemove", moved, true)
@@ -443,7 +466,7 @@ class SelectionRectangle {
 
         }.bind(this)
 
-        this.overlay = svg("rect", {data:"overlay",x:0,y:0,width:this.width,height:this.height,cursor:this.cursor["overlay"],fill:"#E6E7E8",style:"pointer-events:all;opacity:0.2",onmousedown: started})
+        this.overlay = svg("rect", {data:"overlay",x:0,y:0,width:this.width,height:this.height,cursor:this.cursor["overlay"],fill:"#E6E7E8",style:"pointer-events:all;"+(this.standalone?"":"opacity:0.3"),onmousedown: started})
         this.selection = svg("rect", {data:"selection",height:40,cursor:this.cursor["selection"],fill:"#fff","fill-opacity":0.3,stroke:"#fff",style:"display:none",onmousedown: started})
         if (this.standalone) {
             this.handleLeft = svg("rect.handle", {data:"w",height:40,cursor:this.cursor["w"],fill:"",style:"display:none",onmousedown: started})
@@ -453,12 +476,8 @@ class SelectionRectangle {
             this.handleRight.addEventListener("touchstart", started, {passive: true})
         }
         else {
-            console.log("here")
             this.el = svg("g.graphSelection",{transform:"translate("+ dx +"," + dy +")",style:"pointer-events:all"}, this.overlay, this.selection)
-            this.overlay.addEventListener("dblclick", function(e){
-                this.selectionExtent = null;
-                this.update(0)
-                this.notifyParent("zoom",[0,this.width, 0])}.bind(this))
+            // this.overlay.addEventListener("dblclick", zoomout)
             this.overlay.addEventListener("touchstart", started, {passive: true})
             this.selection.addEventListener("touchstart", started, {passive: true})
         }
@@ -466,7 +485,7 @@ class SelectionRectangle {
     update(ended) {
         if(this.selectionExtent) {
             setStyle(this.selection,{display:null})
-            setAttr(this.selection, {x:this.selectionExtent[0][0], y:this.selectionExtent[0][1], width: this.selectionExtent[1][0] - this.selectionExtent[0][0], height: this.selectionExtent[1][1] - this.selectionExtent[0][1]})
+            setAttr(this.selection, {x:this.selectionExtent[0][0], y:this.selectionExtent[0][1], width: this.selectionExtent[1][0] - this.selectionExtent[0][0], height: this.height})
 
             if (this.standalone) {
                 setStyle(this.handleLeft,{display:null, opacity: 0})
@@ -484,10 +503,13 @@ class SelectionRectangle {
             }
             //this.notifyParent("zoom",[0,this.width, 0])
         }
-        console.log(ended)
         if(ended && !this.standalone) {
             setStyle(this.selection,{display:"none"})
         }
+    }
+    sync(data) {
+        this.selectionExtent = data
+        this.update(1)
     }
 }
 
