@@ -3,6 +3,7 @@ const { el, svg, mount, text, list, setChildren, setStyle, setAttr } = redom
 const model = {
     state: {
         updateGraph: true,
+        menuVisible: false,
         visibility: [1,1]
     },
     data: {
@@ -102,9 +103,59 @@ class Legends {
     }
 }
 
+class GraphTitle {
+    constructor(notifyParent) {
+        this.notifyParent = notifyParent
+        this.menu = el("span.f4", {style:"cursor:default"},"menu")
+        this.el = el("div.w-100.h1.flex.items-center.justify-end.pa2", {onclick: function(e) {
+            this.notifyParent("toggleMenu")
+        }.bind(this)}, this.menu)
+    }
+}
+
+class MenuItem {
+    constructor() {
+        this.label = el("span.f5.w-100")
+        this.input = el("input.f5.w-100.bn")
+        this.el = el("div.item")
+    }
+    update(label, value) {
+        console.log(label, value)
+        this.label.textContent = label
+        this.input.value = value
+        setChildren(this.el, [this.label, this.input])
+    }
+}
+
+class GraphMenu {
+    constructor(notifyParent) {
+        this.notifyParent = notifyParent
+        this.aspectRatio = new MenuItem()
+        this.width = new MenuItem()
+        this.refreshPeriod = new MenuItem()
+        this.apply = el("button.w-100.f5.pa2.bn.bg-green", {onclick:function(e){
+            this.notifyParent("updateProperties",[this.width.input.value, this.aspectRatio.input.value, this.refreshPeriod.input.value])
+        }.bind(this)},"Apply")
+        this.el = el("div.w-50.h-100.absolute.bg-gray.right-0.pa2", this.width, this.aspectRatio, this.refreshPeriod, this.apply, this.cancel)
+        setStyle(this.el, {transition : "all 1s ease-in-out", right: "-50%"}) 
+    }
+    update(show, width, aspectRatio, refreshPeriod) {
+        if (show) {
+            setStyle(this.el, {right:"0"})
+        }
+        else {
+            setStyle(this.el, {right:"-50%"})
+        }
+        this.aspectRatio.update("Aspect Ratio:", aspectRatio)
+        this.width.update("Width:", width)
+        this.refreshPeriod.update("Refresh Period:", refreshPeriod)
+    }
+}
+
+
 class LineChart {
     constructor(refreshPeriod, breadth, aspectRatio ) {
-        let margin = {top: 20, right: 100, bottom: 100, left: 30},
+        let margin = {top: 10, right: 100, bottom: 100, left: 30},
             width = breadth || 640,
             height = 360,
             xAxisOffset = 540,
@@ -157,7 +208,9 @@ class LineChart {
         this.conatiner = svg("g", {"clip-path": "url(#lineClip)"}, this.multiLine)
         this.xAxisConatiner = svg("g", {"clip-path": "url(#axisClip)"}, this.xAxis, this.selectionAxis)
         this.svgComponent = svg("svg")
-        this.el = el("div", this.svgComponent)
+        this.title = new GraphTitle(this.onChildEvent.bind(this))
+        this.menu = new GraphMenu(this.onChildEvent.bind(this))
+        this.el = el("div", this.title, this.menu,this.svgComponent)
         this.selectionRectangle = new SelectionRectangle(true, "X",this.height()-70,( this.xScale.range()[1] - this.xScale.range()[0]), 40, 50, this.onChildEvent.bind(this)/*this.onChildEvent("zoom")*/)
         this.graphAreaSelection = new SelectionRectangle(false, "X", this.margin().top, ( this.xScale.range()[1] - this.xScale.range()[0]), this.height()-this.margin().top-this.margin().bottom, 50, this.onChildEvent.bind(this) )
         this.legends = list(svg("g"), Legends, null, this.onChildEvent.bind(this))
@@ -265,6 +318,22 @@ class LineChart {
                 else {
                     this.graphAreaSelection.sync(data[1])
                 }
+                break
+            case "toggleMenu":
+                model.state.menuVisible = !model.state.menuVisible
+                this.menu.update(model.state.menuVisible, this.width(), this.aspectRatio, this.refreshPeriod)
+                break
+            case "updateProperties":
+                this.refreshPeriod = data[2]
+                if (data[0] != this.width() || data[1] != this.aspectRatio) {
+                    console.log(data[0], isNaN(+data[0]))
+                    if (isNaN(parseInt(data[0]))) data[0] = null
+                    console.log(data[0])
+                    this.width(data[0])
+                    this.aspectRatio = data[1]
+                    this.resize()
+                }
+                break
         }
     }
     resize() {
@@ -555,7 +624,7 @@ let dataGenerator = new DataGenerator()
 let total = el("div.w-100", dataGenerator, graph)
 
 document.body.classList.add("w-100","h-100","fs7")
-setStyle(document.body, {font: "6px sans-serif", margin: 0, padding: 0, "box-sizing": "border-box"})
+setStyle(document.body, {font: "6px sans-serif", margin: 0, padding: 0, "box-sizing": "border-box", "overflow-x": "hidden"})
 setStyle(document.documentElement, {height:"100%", width:"100%", margin: 0, padding: 0, "box-sizing": "border-box"})
 mount(document.body, total);
 
